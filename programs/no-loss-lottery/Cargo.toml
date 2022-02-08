@@ -17,3 +17,5 @@ default = []
 
 [dependencies]
 anchor-lang = "0.20.1"
+anchor-spl = "0.20.1"
+switchboard-program = "0.2.0"
