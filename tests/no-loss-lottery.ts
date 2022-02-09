@@ -46,19 +46,11 @@ describe("no-loss-lottery", () => {
         program.programId
       );
 
-    const [ticketsAta, ticketsAtaBump] =
+    const [vaultTicketsAta, vaultTicketsAtaBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [tickets.toBuffer()],
         program.programId
       );
-
-    // get user tickets ata
-    const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
-      spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-      spl.TOKEN_PROGRAM_ID,
-      tickets,
-      program.provider.wallet.publicKey
-    );
 
     // lottery draw timestamp (future)
     const drawMs = 3 * 1000;
@@ -70,7 +62,7 @@ describe("no-loss-lottery", () => {
       vaultBump,
       vaultMgrBump,
       ticketsBump,
-      ticketsAtaBump,
+      vaultTicketsAtaBump,
       draw,
       {
         accounts: {
@@ -78,7 +70,7 @@ describe("no-loss-lottery", () => {
           vault: vault,
           vaultManager: vaultMgr,
           tickets: tickets,
-          ticketsAta: ticketsAta,
+          vaultTicketsAta: vaultTicketsAta,
           user: program.provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: spl.TOKEN_PROGRAM_ID,
@@ -110,7 +102,7 @@ describe("no-loss-lottery", () => {
       vaultBump,
       vaultMgrBump,
       ticketsBump,
-      ticketsAtaBump,
+      vaultTicketsAtaBump,
       new anchor.BN(1),
       {
         accounts: {
@@ -118,7 +110,7 @@ describe("no-loss-lottery", () => {
           vault: vault,
           vaultManager: vaultMgr,
           tickets: tickets,
-          ticketsAta: ticketsAta,
+          vaultTicketsAta: vaultTicketsAta,
           userTicketsAta: userTicketsAta,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,

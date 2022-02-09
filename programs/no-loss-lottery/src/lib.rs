@@ -12,7 +12,7 @@ pub mod no_loss_lottery {
     pub fn initialize(
         ctx: Context<Initialize>,
         _vault_bump: u8,
-        _vault_mgr_bump: u8,
+        vault_mgr_bump: u8,
         _tickets_bump: u8,
         _tickets_ata_bump: u8,
         draw: i64,
@@ -24,7 +24,26 @@ pub mod no_loss_lottery {
         vault_mgr.vault = ctx.accounts.vault.clone().key();
         vault_mgr.tickets = ctx.accounts.tickets.clone().key();
 
-        Ok(())
+        // mint tickets to vault
+        let mint_to_accounts = token::MintTo {
+            mint: ctx.accounts.tickets.clone().to_account_info(),
+            to: ctx.accounts.vault_tickets_ata.clone().to_account_info(),
+            authority: ctx.accounts.vault_manager.clone().to_account_info(),
+        };
+
+        // mint initial ticket supply to the vault tickets ata
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.clone().to_account_info(),
+                mint_to_accounts,
+                &[&[
+                    ctx.accounts.mint.clone().key().as_ref(),
+                    ctx.accounts.vault.clone().key().as_ref(),
+                    &[vault_mgr_bump],
+                ]],
+            ),
+            100_000_000,
+        )
     }
 
     pub fn deposit(
@@ -32,7 +51,7 @@ pub mod no_loss_lottery {
         _vault_bump: u8,
         vault_mgr_bump: u8,
         _tickets_bump: u8,
-        _tickets_ata_bump: u8,
+        _vault_tickets_ata_bump: u8,
         amount: u64,
     ) -> ProgramResult {
         // transfer tokens from user wallet to vault
@@ -52,7 +71,7 @@ pub mod no_loss_lottery {
 
         // transfer tickets from vault to user
         let transfer_ticket_accounts = token::Transfer {
-            from: ctx.accounts.vault.clone().to_account_info(),
+            from: ctx.accounts.vault_tickets_ata.clone().to_account_info(),
             to: ctx.accounts.user_tickets_ata.clone().to_account_info(),
             authority: ctx.accounts.vault_manager.clone().to_account_info(),
         };
@@ -118,7 +137,7 @@ pub mod no_loss_lottery {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, tickets_ata_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, vault_tickets_ata_bump: u8)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -149,10 +168,10 @@ pub struct Initialize<'info> {
     #[account(init,
         payer = user,
         seeds = [tickets.key().as_ref()],
-        bump = tickets_ata_bump,
+        bump = vault_tickets_ata_bump,
         token::mint = tickets,
         token::authority = vault_manager)]
-    pub tickets_ata: Account<'info, token::TokenAccount>,
+    pub vault_tickets_ata: Account<'info, token::TokenAccount>,
 
     #[account(mut)]
     pub user: Signer<'info>,
@@ -163,7 +182,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, vault_tickets_bump: u8, vault_tickets_ata_bump: u8)]
 pub struct Deposit<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -184,7 +203,7 @@ pub struct Deposit<'info> {
     pub tickets: Account<'info, token::Mint>,
 
     #[account(mut)]
-    pub tickets_ata: Box<Account<'info, token::TokenAccount>>,
+    pub vault_tickets_ata: Box<Account<'info, token::TokenAccount>>,
 
     #[account(init_if_needed,
         payer = user,
