@@ -40,6 +40,26 @@ describe("no-loss-lottery", () => {
         program.programId
       );
 
+    const [tickets, ticketsBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [mint.publicKey.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
+        program.programId
+      );
+
+    const [ticketsAta, ticketsAtaBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [tickets.toBuffer()],
+        program.programId
+      );
+
+    // get user tickets ata
+    const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
+      spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+      spl.TOKEN_PROGRAM_ID,
+      tickets,
+      program.provider.wallet.publicKey
+    );
+
     // lottery draw timestamp (future)
     const drawMs = 3 * 1000;
     const now = new Date().getTime();
@@ -49,12 +69,16 @@ describe("no-loss-lottery", () => {
     const initTxSig = await program.rpc.initialize(
       vaultBump,
       vaultMgrBump,
+      ticketsBump,
+      ticketsAtaBump,
       draw,
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
+          tickets: tickets,
+          ticketsAta: ticketsAta,
           user: program.provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: spl.TOKEN_PROGRAM_ID,
@@ -73,19 +97,33 @@ describe("no-loss-lottery", () => {
     await mint.mintTo(userAta.address, mintAuthority.publicKey, [], 100);
     console.log("minted 100 tokens to user_ata");
 
+    // get user tickets ata
+    const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
+      spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+      spl.TOKEN_PROGRAM_ID,
+      tickets,
+      program.provider.wallet.publicKey
+    );
+
     // deposit tokens into vault
     const depositTxSig = await program.rpc.deposit(
       vaultBump,
       vaultMgrBump,
+      ticketsBump,
+      ticketsAtaBump,
       new anchor.BN(1),
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
+          tickets: tickets,
+          ticketsAta: ticketsAta,
+          userTicketsAta: userTicketsAta,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,
           systemProgram: anchor.web3.SystemProgram.programId,
+          associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
           tokenProgram: spl.TOKEN_PROGRAM_ID,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
@@ -97,29 +135,37 @@ describe("no-loss-lottery", () => {
     await sleep(drawMs + 500);
 
     // draw winner
-    const drawTxSig = await program.rpc.draw(vaultBump, vaultMgrBump, {
-      accounts: {
-        mint: mint.publicKey,
-        vault: vault,
-        vaultManager: vaultMgr,
-        user: program.provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: spl.TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      },
-    });
+    const drawTxSig = await program.rpc.draw(
+      vaultBump,
+      vaultMgrBump,
+      ticketsBump,
+      {
+        accounts: {
+          mint: mint.publicKey,
+          vault: vault,
+          tickets: tickets,
+          vaultManager: vaultMgr,
+          user: program.provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        },
+      }
+    );
     console.log("drawTxSig:", drawTxSig);
 
     // user withdraw tokens + any winnings
     const withdrawTxSig = await program.rpc.withdraw(
       vaultBump,
       vaultMgrBump,
+      ticketsBump,
       new anchor.BN(1),
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
+          tickets: tickets,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -152,4 +198,3 @@ async function newAccountWithLamports(
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
