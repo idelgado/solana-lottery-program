@@ -23,6 +23,7 @@ pub mod no_loss_lottery {
         vault_mgr.mint = ctx.accounts.mint.clone().key();
         vault_mgr.vault = ctx.accounts.vault.clone().key();
         vault_mgr.tickets = ctx.accounts.tickets.clone().key();
+        vault_mgr.vault_tickets_ata = ctx.accounts.vault_tickets_ata.clone().key();
 
         // mint tickets to vault
         let mint_to_accounts = token::MintTo {
@@ -195,6 +196,8 @@ pub struct Deposit<'info> {
     #[account(mut,
         has_one = vault,
         has_one = mint,
+        has_one = tickets,
+        has_one = vault_tickets_ata,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
         bump = vault_mgr_bump)]
     pub vault_manager: Account<'info, VaultManager>,
@@ -237,6 +240,7 @@ pub struct Withdraw<'info> {
     #[account(mut,
         has_one = vault,
         has_one = mint,
+        has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
         bump = vault_mgr_bump)]
     pub vault_manager: Account<'info, VaultManager>,
@@ -291,6 +295,7 @@ pub struct VaultManager {
     pub mint: Pubkey,
     pub vault: Pubkey,
     pub tickets: Pubkey,
+    pub vault_tickets_ata: Pubkey,
     //pub lock: i64, // in ms, when lock is triggered deposits and withdrawals are disabled until draw time
     pub draw: i64, // in ms, lottery end time
 }
