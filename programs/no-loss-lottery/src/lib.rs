@@ -16,7 +16,7 @@ pub mod no_loss_lottery {
         _tickets_bump: u8,
         _tickets_ata_bump: u8,
         draw: i64,
-        ticket_price: i64,
+        ticket_price: u64,
     ) -> ProgramResult {
         // set vault manager config
         let vault_mgr = &mut ctx.accounts.vault_manager;
@@ -57,6 +57,9 @@ pub mod no_loss_lottery {
         _vault_tickets_ata_bump: u8,
         amount: u64,
     ) -> ProgramResult {
+        // calculate price based on number of tickets requested
+        let price = amount * ctx.accounts.vault_manager.ticket_price;
+
         // transfer tokens from user wallet to vault
         let transfer_accounts = token::Transfer {
             from: ctx.accounts.user_ata.clone().to_account_info(),
@@ -69,7 +72,7 @@ pub mod no_loss_lottery {
                 ctx.accounts.token_program.clone().to_account_info(),
                 transfer_accounts,
             ),
-            amount,
+            price,
         )?;
 
         // transfer tickets from vault to user
@@ -299,7 +302,7 @@ pub struct VaultManager {
     pub tickets: Pubkey,
     pub vault_tickets_ata: Pubkey,
     pub draw: i64, // in ms, lottery end time
-    pub ticket_price: i64,
+    pub ticket_price: u64,
     //pub lock: i64, // in ms, when lock is triggered deposits and withdrawals are disabled until draw time
 }
 

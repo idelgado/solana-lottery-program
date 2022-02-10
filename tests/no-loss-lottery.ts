@@ -185,7 +185,7 @@ async function newAccountWithLamports(
   // airdrop lamports
   let txSig = await connection.requestAirdrop(account.publicKey, lamports);
   await connection.confirmTransaction(txSig);
-  console.log("airdrop tx-sig: ", txSig);
+  console.log("airdropTxSig:", txSig);
 
   return account;
 }
