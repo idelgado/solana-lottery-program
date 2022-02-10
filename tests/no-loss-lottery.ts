@@ -57,6 +57,9 @@ describe("no-loss-lottery", () => {
     const now = new Date().getTime();
     const draw = new anchor.BN(new Date(now + drawMs).getTime() / 1000);
 
+    // ticket price in tokens
+    const ticketPrice = new anchor.BN(1);
+
     // init vault
     const initTxSig = await program.rpc.initialize(
       vaultBump,
@@ -64,6 +67,7 @@ describe("no-loss-lottery", () => {
       ticketsBump,
       vaultTicketsAtaBump,
       draw,
+      ticketPrice,
       {
         accounts: {
           mint: mint.publicKey,
@@ -97,8 +101,8 @@ describe("no-loss-lottery", () => {
       program.provider.wallet.publicKey
     );
 
-    // mint tokens into vault
-    const mintTxSig = await program.rpc.mint(
+    // deposit tokens into vault
+    const depositTxSig = await program.rpc.deposit(
       vaultBump,
       vaultMgrBump,
       ticketsBump,
@@ -121,7 +125,7 @@ describe("no-loss-lottery", () => {
         },
       }
     );
-    console.log("mintSigTx:", mintTxSig);
+    console.log("depositSigTx:", depositTxSig);
 
     // wait for draw to expire
     await sleep(drawMs + 500);

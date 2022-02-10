@@ -16,10 +16,12 @@ pub mod no_loss_lottery {
         _tickets_bump: u8,
         _tickets_ata_bump: u8,
         draw: i64,
+        ticket_price: i64,
     ) -> ProgramResult {
         // set vault manager config
         let vault_mgr = &mut ctx.accounts.vault_manager;
         vault_mgr.draw = draw;
+        vault_mgr.ticket_price = ticket_price;
         vault_mgr.mint = ctx.accounts.mint.clone().key();
         vault_mgr.vault = ctx.accounts.vault.clone().key();
         vault_mgr.tickets = ctx.accounts.tickets.clone().key();
@@ -47,8 +49,8 @@ pub mod no_loss_lottery {
         )
     }
 
-    pub fn mint(
-        ctx: Context<Mint>,
+    pub fn deposit(
+        ctx: Context<Deposit>,
         _vault_bump: u8,
         vault_mgr_bump: u8,
         _tickets_bump: u8,
@@ -184,7 +186,7 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 #[instruction(vault_bump: u8, vault_mgr_bump: u8, vault_tickets_bump: u8, vault_tickets_ata_bump: u8)]
-pub struct Mint<'info> {
+pub struct Deposit<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
@@ -296,8 +298,9 @@ pub struct VaultManager {
     pub vault: Pubkey,
     pub tickets: Pubkey,
     pub vault_tickets_ata: Pubkey,
-    //pub lock: i64, // in ms, when lock is triggered mints and withdrawals are disabled until draw time
     pub draw: i64, // in ms, lottery end time
+    pub ticket_price: i64,
+    //pub lock: i64, // in ms, when lock is triggered deposits and withdrawals are disabled until draw time
 }
 
 #[error]
