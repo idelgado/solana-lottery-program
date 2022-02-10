@@ -12,3 +12,4 @@ No-loss lottery: Build a platform for users to deposit a variety of tokens into 
 - Not sure how to use the funds to farm for interest yet
 - create on chain DB to keep track of wallets:tickets
 - VRF to pick a random winning ticket
+- lottery fees

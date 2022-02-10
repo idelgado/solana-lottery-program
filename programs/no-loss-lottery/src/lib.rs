@@ -49,8 +49,8 @@ pub mod no_loss_lottery {
         )
     }
 
-    pub fn deposit(
-        ctx: Context<Deposit>,
+    pub fn buy(
+        ctx: Context<Buy>,
         _vault_bump: u8,
         vault_mgr_bump: u8,
         _tickets_bump: u8,
@@ -189,7 +189,7 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 #[instruction(vault_bump: u8, vault_mgr_bump: u8, vault_tickets_bump: u8, vault_tickets_ata_bump: u8)]
-pub struct Deposit<'info> {
+pub struct Buy<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
@@ -303,7 +303,7 @@ pub struct VaultManager {
     pub vault_tickets_ata: Pubkey,
     pub draw: i64, // in ms, lottery end time
     pub ticket_price: u64,
-    //pub lock: i64, // in ms, when lock is triggered deposits and withdrawals are disabled until draw time
+    //pub lock: i64, // in ms, when lock is triggered buys and withdrawals are disabled until draw time
 }
 
 #[error]
