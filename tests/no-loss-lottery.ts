@@ -97,8 +97,8 @@ describe("no-loss-lottery", () => {
       program.provider.wallet.publicKey
     );
 
-    // deposit tokens into vault
-    const depositTxSig = await program.rpc.deposit(
+    // mint tokens into vault
+    const mintTxSig = await program.rpc.mint(
       vaultBump,
       vaultMgrBump,
       ticketsBump,
@@ -121,7 +121,7 @@ describe("no-loss-lottery", () => {
         },
       }
     );
-    console.log("depositSigTx:", depositTxSig);
+    console.log("mintSigTx:", mintTxSig);
 
     // wait for draw to expire
     await sleep(drawMs + 500);
