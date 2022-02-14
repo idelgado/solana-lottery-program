@@ -35,6 +35,7 @@ No-loss lottery: Build a platform for users to deposit a variety of tokens into 
 - what happens if winner never claims?
 - do not use ata for vault tickets
 - variable fee
+- wrap sol?
 
 #### Solve
 

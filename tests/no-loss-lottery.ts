@@ -75,7 +75,6 @@ describe("no-loss-lottery", () => {
       vaultBump,
       vaultMgrBump,
       ticketsBump,
-      vaultTicketsAtaBump,
       prizeBump,
       drawTime,
       ticketPrice,
@@ -85,7 +84,6 @@ describe("no-loss-lottery", () => {
           vault: vault,
           vaultManager: vaultMgr,
           tickets: tickets,
-          vaultTicketsAta: vaultTicketsAta,
           prize: prize,
           user: program.provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -105,40 +103,45 @@ describe("no-loss-lottery", () => {
     await mint.mintTo(userAta.address, mintAuthority.publicKey, [], 100);
     console.log("minted 100 tokens to user_ata");
 
-    // get user tickets ata
-    const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
-      spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-      spl.TOKEN_PROGRAM_ID,
-      tickets,
-      program.provider.wallet.publicKey
-    );
-
     // choose your lucky numbers!
     let numbers: Array<number>;
     numbers = [1, 2, 3, 4, 5, 6];
 
-    // create ticket PDA
+    // create ticket mint PDA
     const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Uint8Array.from(numbers)],
+      [Uint8Array.from(numbers), mint.publicKey.toBuffer()],
       program.programId
+    );
+
+    // create ticket data PDA
+    const [ticketData, ticketDataBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [ticket.toBuffer()],
+        program.programId
+      );
+
+    // get user tickets ata
+    const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
+      spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+      spl.TOKEN_PROGRAM_ID,
+      ticket,
+      program.provider.wallet.publicKey
     );
 
     // buy a ticket
     const buyTxSig = await program.rpc.buy(
       vaultBump,
       vaultMgrBump,
-      ticketsBump,
-      vaultTicketsAtaBump,
       ticketBump,
+      ticketDataBump,
       numbers,
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
-          tickets: tickets,
-          vaultTicketsAta: vaultTicketsAta,
           ticket: ticket,
+          ticketData: ticketData,
           userTicketsAta: userTicketsAta,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,
@@ -178,14 +181,13 @@ describe("no-loss-lottery", () => {
     const findTxSig = await program.rpc.find(
       vaultBump,
       vaultMgrBump,
-      ticketsBump,
+      ticketDataBump,
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
-          tickets: tickets,
-          ticket: ticket,
+          ticketData: ticketData,
           user: program.provider.wallet.publicKey,
         },
       }

@@ -14,7 +14,6 @@ pub mod no_loss_lottery {
         _vault_bump: u8,
         vault_mgr_bump: u8,
         _tickets_bump: u8,
-        _tickets_ata_bump: u8,
         _prize_bump: u8,
         draw_time: i64,
         ticket_price: u64,
@@ -25,30 +24,8 @@ pub mod no_loss_lottery {
         vault_mgr.ticket_price = ticket_price;
         vault_mgr.mint = ctx.accounts.mint.clone().key();
         vault_mgr.vault = ctx.accounts.vault.clone().key();
-        vault_mgr.tickets = ctx.accounts.tickets.clone().key();
-        vault_mgr.vault_tickets_ata = ctx.accounts.vault_tickets_ata.clone().key();
 
-        // mint tickets to vault
-        let mint_to_accounts = token::MintTo {
-            mint: ctx.accounts.tickets.clone().to_account_info(),
-            to: ctx.accounts.vault_tickets_ata.clone().to_account_info(),
-            authority: ctx.accounts.vault_manager.clone().to_account_info(),
-        };
-
-        // mint initial ticket supply to the vault tickets ata
-        // TODO: how many to mint?
-        token::mint_to(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.clone().to_account_info(),
-                mint_to_accounts,
-                &[&[
-                    ctx.accounts.mint.clone().key().as_ref(),
-                    ctx.accounts.vault.clone().key().as_ref(),
-                    &[vault_mgr_bump],
-                ]],
-            ),
-            100_000_000,
-        )
+        Ok(())
     }
 
     pub fn buy(
@@ -56,17 +33,16 @@ pub mod no_loss_lottery {
         _vault_bump: u8,
         vault_mgr_bump: u8,
         _tickets_bump: u8,
-        _vault_tickets_ata_bump: u8,
-        _ticket_bump: u8,
+        _ticket_data_bump: u8,
         numbers: [u8; 6],
     ) -> ProgramResult {
         // create ticket PDA data
-        let ticket_account = &mut ctx.accounts.ticket;
+        let ticket_account = &mut ctx.accounts.ticket_data;
         ticket_account.mint = ctx.accounts.mint.clone().key();
         ticket_account.vault = ctx.accounts.vault.clone().key();
-        ticket_account.tickets = ctx.accounts.tickets.clone().key();
         ticket_account.owner = ctx.accounts.user.key();
         ticket_account.numbers = numbers;
+        ticket_account.ticket_mint = ctx.accounts.ticket.clone().key();
 
         // transfer tokens from user wallet to vault
         let transfer_accounts = token::Transfer {
@@ -83,18 +59,17 @@ pub mod no_loss_lottery {
             ctx.accounts.vault_manager.clone().ticket_price,
         )?;
 
-        // transfer ticket from vault to user
-        let transfer_ticket_accounts = token::Transfer {
-            from: ctx.accounts.vault_tickets_ata.clone().to_account_info(),
+        let mint_to_accounts = token::MintTo {
+            mint: ctx.accounts.ticket.clone().to_account_info(),
             to: ctx.accounts.user_tickets_ata.clone().to_account_info(),
             authority: ctx.accounts.vault_manager.clone().to_account_info(),
         };
 
-        // 1 ticket per buy call
-        token::transfer(
+        // mint ticket to buyer
+        token::mint_to(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.clone().to_account_info(),
-                transfer_ticket_accounts,
+                mint_to_accounts,
                 &[&[
                     ctx.accounts.mint.clone().key().as_ref(),
                     ctx.accounts.vault.clone().key().as_ref(),
@@ -194,7 +169,7 @@ pub mod no_loss_lottery {
         let winning_numbers = ctx.accounts.vault_manager.winning_numbers;
 
         // get ticket numbers from PDA passed in
-        let ticket_numbers = ctx.accounts.ticket.numbers;
+        let ticket_numbers = ctx.accounts.ticket_data.numbers;
 
         // check if the numbers match the winning numbers
         for (i, n) in winning_numbers.iter().enumerate() {
@@ -208,15 +183,15 @@ pub mod no_loss_lottery {
         // if winner found, end lottery
         ctx.accounts.vault_manager.lottery_ended = true;
 
-        // set winner as ticket owner
-        ctx.accounts.vault_manager.winner = ctx.accounts.ticket.owner;
+        // set ticket as the winner
+        ctx.accounts.vault_manager.winner = ctx.accounts.ticket_data.ticket_mint;
 
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, vault_tickets_ata_bump: u8, prize_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, prize_bump: u8)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -246,14 +221,6 @@ pub struct Initialize<'info> {
 
     #[account(init,
         payer = user,
-        seeds = [tickets.key().as_ref()],
-        bump = vault_tickets_ata_bump,
-        token::mint = tickets,
-        token::authority = vault_manager)]
-    pub vault_tickets_ata: Account<'info, token::TokenAccount>,
-
-    #[account(init,
-        payer = user,
         seeds = [mint.key().as_ref(), vault.key().as_ref(), vault_manager.key().as_ref(), tickets.key().as_ref()],
         bump = prize_bump,
         token::mint = mint,
@@ -270,7 +237,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, vault_tickets_bump: u8, vault_tickets_ata_bump: u8, ticket_bump: u8, numbers: [u8; 6])]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, ticket_nft_bump: u8, ticket_data_bump: u8, numbers: [u8; 6])]
 pub struct Buy<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -283,28 +250,28 @@ pub struct Buy<'info> {
     #[account(mut,
         has_one = vault,
         has_one = mint,
-        has_one = tickets,
-        has_one = vault_tickets_ata,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
         bump = vault_mgr_bump)]
     pub vault_manager: Box<Account<'info, VaultManager>>,
 
-    #[account(mut)]
-    pub tickets: Account<'info, token::Mint>,
-
-    #[account(mut)]
-    pub vault_tickets_ata: Box<Account<'info, token::TokenAccount>>,
+    #[account(init,
+        payer = user,
+        seeds = [&numbers, mint.key().as_ref()],
+        bump = ticket_nft_bump,
+        mint::decimals = 0,
+        mint::authority = vault_manager)]
+    pub ticket: Account<'info, token::Mint>,
 
     #[account(init,
         payer = user,
-        seeds = [&numbers],
-        bump = ticket_bump,
+        seeds = [ticket.key().as_ref()],
+        bump = ticket_data_bump,
     )]
-    pub ticket: Box<Account<'info, Ticket>>,
+    pub ticket_data: Box<Account<'info, Ticket>>,
 
     #[account(init_if_needed,
         payer = user,
-        associated_token::mint = tickets,
+        associated_token::mint = ticket,
         associated_token::authority = user)]
     pub user_tickets_ata: Box<Account<'info, token::TokenAccount>>,
 
@@ -334,7 +301,6 @@ pub struct Withdraw<'info> {
     #[account(mut,
         has_one = vault,
         has_one = mint,
-        has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
         bump = vault_mgr_bump)]
     pub vault_manager: Account<'info, VaultManager>,
@@ -370,7 +336,6 @@ pub struct Draw<'info> {
     #[account(mut,
         has_one = vault,
         has_one = mint,
-        has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
         bump = vault_mgr_bump)]
     pub vault_manager: Account<'info, VaultManager>,
@@ -387,7 +352,7 @@ pub struct Draw<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, ticket_data_bump: u8)]
 pub struct Find<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -400,16 +365,12 @@ pub struct Find<'info> {
     #[account(mut,
         has_one = vault,
         has_one = mint,
-        has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
         bump = vault_mgr_bump)]
     pub vault_manager: Account<'info, VaultManager>,
 
     #[account(mut)]
-    pub tickets: Account<'info, token::Mint>,
-
-    #[account(mut)]
-    pub ticket: Box<Account<'info, Ticket>>,
+    pub ticket_data: Box<Account<'info, Ticket>>,
 
     #[account(mut)]
     pub user: Signer<'info>,
@@ -420,8 +381,6 @@ pub struct Find<'info> {
 pub struct VaultManager {
     pub mint: Pubkey,
     pub vault: Pubkey,
-    pub tickets: Pubkey,
-    pub vault_tickets_ata: Pubkey,
     pub draw_time: i64, // in ms, lottery end time
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
@@ -434,16 +393,9 @@ pub struct VaultManager {
 pub struct Ticket {
     pub mint: Pubkey,
     pub vault: Pubkey,
-    pub tickets: Pubkey,
+    pub ticket_mint: Pubkey,
     pub owner: Pubkey,
     pub numbers: [u8; 6],
-}
-
-#[account]
-#[derive(Default)]
-pub struct LotteryResult {
-    pub winner_exists: bool,
-    pub winner: Pubkey,
 }
 
 #[error]
