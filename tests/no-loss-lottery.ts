@@ -40,25 +40,8 @@ describe("no-loss-lottery", () => {
         program.programId
       );
 
-    const [tickets, ticketsBump] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [mint.publicKey.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
-        program.programId
-      );
-
-    const [vaultTicketsAta, vaultTicketsAtaBump] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [tickets.toBuffer()],
-        program.programId
-      );
-
     const [prize, prizeBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        mint.publicKey.toBuffer(),
-        vault.toBuffer(),
-        vaultMgr.toBuffer(),
-        tickets.toBuffer(),
-      ],
+      [mint.publicKey.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
       program.programId
     );
 
@@ -74,7 +57,6 @@ describe("no-loss-lottery", () => {
     const initTxSig = await program.rpc.initialize(
       vaultBump,
       vaultMgrBump,
-      ticketsBump,
       prizeBump,
       drawTime,
       ticketPrice,
@@ -83,7 +65,6 @@ describe("no-loss-lottery", () => {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
-          tickets: tickets,
           prize: prize,
           user: program.provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -158,23 +139,17 @@ describe("no-loss-lottery", () => {
     await sleep(drawMs + 500);
 
     // draw winner
-    const drawTxSig = await program.rpc.draw(
-      vaultBump,
-      vaultMgrBump,
-      ticketsBump,
-      {
-        accounts: {
-          mint: mint.publicKey,
-          vault: vault,
-          tickets: tickets,
-          vaultManager: vaultMgr,
-          user: program.provider.wallet.publicKey,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      }
-    );
+    const drawTxSig = await program.rpc.draw(vaultBump, vaultMgrBump, {
+      accounts: {
+        mint: mint.publicKey,
+        vault: vault,
+        vaultManager: vaultMgr,
+        user: program.provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+    });
     console.log("drawTxSig:", drawTxSig);
 
     // find winner
@@ -204,7 +179,6 @@ describe("no-loss-lottery", () => {
     const withdrawTxSig = await program.rpc.withdraw(
       vaultBump,
       vaultMgrBump,
-      ticketsBump,
       prizeBump,
       new anchor.BN(1),
       {
@@ -212,7 +186,6 @@ describe("no-loss-lottery", () => {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
-          tickets: tickets,
           prize: prize,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,

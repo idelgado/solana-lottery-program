@@ -12,8 +12,7 @@ pub mod no_loss_lottery {
     pub fn initialize(
         ctx: Context<Initialize>,
         _vault_bump: u8,
-        vault_mgr_bump: u8,
-        _tickets_bump: u8,
+        _vault_mgr_bump: u8,
         _prize_bump: u8,
         draw_time: i64,
         ticket_price: u64,
@@ -32,7 +31,7 @@ pub mod no_loss_lottery {
         ctx: Context<Buy>,
         _vault_bump: u8,
         vault_mgr_bump: u8,
-        _tickets_bump: u8,
+        _ticket_bump: u8,
         _ticket_data_bump: u8,
         numbers: [u8; 6],
     ) -> ProgramResult {
@@ -84,7 +83,6 @@ pub mod no_loss_lottery {
         ctx: Context<Withdraw>,
         _vault_bump: u8,
         vault_mgr_bump: u8,
-        _tickets_bump: u8,
         _prize_bump: u8,
         amount: u64,
     ) -> ProgramResult {
@@ -141,7 +139,6 @@ pub mod no_loss_lottery {
         ctx: Context<Draw>,
         _vault_bump: u8,
         _vault_mgr_bump: u8,
-        _tickets_bump: u8,
     ) -> ProgramResult {
         // get current timestamp from Clock program
         let now = Clock::get()?.unix_timestamp;
@@ -163,7 +160,7 @@ pub mod no_loss_lottery {
         ctx: Context<Find>,
         _vault_bump: u8,
         _vault_mgr_bump: u8,
-        _tickets_bump: u8,
+        _ticket_data_bump: u8,
     ) -> ProgramResult {
         // check if winning PDA exists
         let winning_numbers = ctx.accounts.vault_manager.winning_numbers;
@@ -191,7 +188,7 @@ pub mod no_loss_lottery {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, prize_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, prize_bump: u8)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -213,15 +210,6 @@ pub struct Initialize<'info> {
     #[account(init,
         payer = user,
         seeds = [mint.key().as_ref(), vault.key().as_ref(), vault_manager.key().as_ref()],
-        bump = tickets_bump,
-        mint::authority = vault_manager,
-        mint::decimals = 0,
-    )]
-    pub tickets: Account<'info, token::Mint>,
-
-    #[account(init,
-        payer = user,
-        seeds = [mint.key().as_ref(), vault.key().as_ref(), vault_manager.key().as_ref(), tickets.key().as_ref()],
         bump = prize_bump,
         token::mint = mint,
         token::authority = vault_manager
@@ -237,7 +225,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, ticket_nft_bump: u8, ticket_data_bump: u8, numbers: [u8; 6])]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, ticket_bump: u8, ticket_data_bump: u8, numbers: [u8; 6])]
 pub struct Buy<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -257,7 +245,7 @@ pub struct Buy<'info> {
     #[account(init,
         payer = user,
         seeds = [&numbers, mint.key().as_ref()],
-        bump = ticket_nft_bump,
+        bump = ticket_bump,
         mint::decimals = 0,
         mint::authority = vault_manager)]
     pub ticket: Account<'info, token::Mint>,
@@ -288,7 +276,7 @@ pub struct Buy<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, prize_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, prize_bump: u8)]
 pub struct Withdraw<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -305,9 +293,6 @@ pub struct Withdraw<'info> {
         bump = vault_mgr_bump)]
     pub vault_manager: Account<'info, VaultManager>,
 
-    #[account(mut)]
-    pub tickets: Account<'info, token::Mint>,
-
     #[account(mut, has_one = mint)]
     pub prize: Box<Account<'info, token::TokenAccount>>,
 
@@ -323,7 +308,7 @@ pub struct Withdraw<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8)]
 pub struct Draw<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -339,9 +324,6 @@ pub struct Draw<'info> {
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
         bump = vault_mgr_bump)]
     pub vault_manager: Account<'info, VaultManager>,
-
-    #[account(mut)]
-    pub tickets: Account<'info, token::Mint>,
 
     #[account(mut)]
     pub user: Signer<'info>,
