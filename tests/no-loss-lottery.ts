@@ -57,7 +57,7 @@ describe("no-loss-lottery", () => {
     );
 
     // lottery draw timestamp (future)
-    const drawMs = 3 * 1000;
+    const drawMs = 1 * 1000;
     const now = new Date().getTime();
     const drawTime = new anchor.BN(new Date(now + drawMs).getTime() / 1000);
 
@@ -111,7 +111,7 @@ describe("no-loss-lottery", () => {
 
     // create ticket PDA
     const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Uint8Array.from(numbers)],
+      [Uint8Array.from(numbers), vaultMgr.toBuffer()],
       program.programId
     );
 
@@ -164,29 +164,45 @@ describe("no-loss-lottery", () => {
     );
     console.log("drawTxSig:", drawTxSig);
 
+    // mint tokens to prize for testing
+    await mint.mintTo(prize, mintAuthority.publicKey, [], 100);
+    console.log(
+      "minted 100 tokens to prize ata, dont actually do this in prod"
+    );
+
+    // fetch winning numbers
+    const vaultMgrAccount = await program.account.vaultManager.fetch(vaultMgr);
+
+    // create winning ticket PDA
+    const [winningTicket, winningTicketBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Uint8Array.from(vaultMgrAccount.winningNumbers), vaultMgr.toBuffer()],
+        program.programId
+      );
+
     // find winner
     const findTxSig = await program.rpc.find(
       vaultBump,
       vaultMgrBump,
       ticketsBump,
+      vaultMgrAccount.winningNumbers,
+      winningTicketBump,
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
           tickets: tickets,
-          ticket: ticket,
+          ticket: winningTicket,
+          prize: prize,
           user: program.provider.wallet.publicKey,
+          userAta: userAta.address,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
         },
       }
     );
     console.log("findTxSig:", findTxSig);
-
-    // mint tokens to prize for testing
-    await mint.mintTo(prize, mintAuthority.publicKey, [], 100);
-    console.log(
-      "minted 100 tokens to prize ata, dont actually do this in prod"
-    );
 
     // user redeem tokens + any winnings
     const redeemTxSig = await program.rpc.redeem(

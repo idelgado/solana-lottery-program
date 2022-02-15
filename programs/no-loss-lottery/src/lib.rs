@@ -38,6 +38,16 @@ pub mod no_loss_lottery {
         _ticket_bump: u8,
         numbers: [u8; 6],
     ) -> ProgramResult {
+        // do not allow user to pass in zeroed array of numbers
+        if numbers == [0u8; 6] {
+            return Err(ErrorCode::InvalidNumbers.into());
+        }
+
+        // if buy is locked this means someone needs to call find
+        if ctx.accounts.vault_manager.lock_buy {
+            return Err(ErrorCode::CallFind.into());
+        }
+
         // create ticket PDA data
         let ticket_account = &mut ctx.accounts.ticket;
         ticket_account.mint = ctx.accounts.mint.clone().key();
@@ -92,11 +102,6 @@ pub mod no_loss_lottery {
         _ticket_bump: u8,
         _prize_bump: u8,
     ) -> ProgramResult {
-        // if lottery is still running, you cannot redeem
-        if !ctx.accounts.vault_manager.lottery_ended {
-            return Err(ErrorCode::LotteryInProgress.into());
-        };
-
         // burn a ticket from the user ATA
         let burn_accounts = token::Burn {
             mint: ctx.accounts.tickets.clone().to_account_info(),
@@ -118,31 +123,6 @@ pub mod no_loss_lottery {
         ctx.accounts
             .ticket
             .close(ctx.accounts.user.clone().to_account_info())?;
-
-        // if winner redeems, give them the prize!
-        // TODO: mark winner as received prize
-        if ctx.accounts.vault_manager.winner == ctx.accounts.user.key() {
-            let prize_transfer_accounts = token::Transfer {
-                from: ctx.accounts.prize.clone().to_account_info(),
-                to: ctx.accounts.user_ata.clone().to_account_info(),
-                authority: ctx.accounts.vault_manager.clone().to_account_info(),
-            };
-
-            // transfer prize from vault to winner
-            // TODO how to get all of prize?
-            token::transfer(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.clone().to_account_info(),
-                    prize_transfer_accounts,
-                    &[&[
-                        ctx.accounts.mint.key().as_ref(),
-                        ctx.accounts.vault.key().as_ref(),
-                        &[vault_mgr_bump],
-                    ]],
-                ),
-                1,
-            )?;
-        };
 
         let transfer_accounts = token::Transfer {
             from: ctx.accounts.vault.clone().to_account_info(),
@@ -184,37 +164,61 @@ pub mod no_loss_lottery {
 
         // set numbers in vault_manager account
         ctx.accounts.vault_manager.winning_numbers = numbers;
+
+        // lock `buy` function until `find` called
+        ctx.accounts.vault_manager.lock_buy = true;
         Ok(())
     }
 
+    // check if a winning PDA exists
+    // force passing in the winning numbers PDA
+    // if PDA exists, send prize
+    // if not error
     pub fn find(
         ctx: Context<Find>,
         _vault_bump: u8,
-        _vault_mgr_bump: u8,
+        vault_mgr_bump: u8,
         _tickets_bump: u8,
+        _numbers: [u8; 6],
+        _ticket_bump: u8,
     ) -> ProgramResult {
-        // check if winning PDA exists
-        let winning_numbers = ctx.accounts.vault_manager.winning_numbers;
+        // unlock buy tickets
+        ctx.accounts.vault_manager.lock_buy = false;
 
-        // get ticket numbers from PDA passed in
-        let ticket_numbers = ctx.accounts.ticket.numbers;
+        // zero out winning numbers
+        ctx.accounts.vault_manager.winning_numbers = [0u8; 6];
 
-        // check if the numbers match the winning numbers
-        for (i, n) in winning_numbers.iter().enumerate() {
-            if n != &ticket_numbers[i] {
-                // reset winning_numbers
-                // reset draw time
-                return Err(ErrorCode::NoWinner.into());
-            }
+        // if numbers are zeroed out this means this account was initialized in this transaction
+        // no winner found
+        if ctx.accounts.ticket.numbers == [0u8; 6] {
+            // we cannot error here because we need the variables to persist in the vault_manager account
+            // close newly created account and return SOL to user
+            // TODO: emit an event for this condition
+            return ctx
+                .accounts
+                .ticket
+                .close(ctx.accounts.user.to_account_info());
         }
 
-        // if winner found, end lottery
-        ctx.accounts.vault_manager.lottery_ended = true;
+        let transfer_accounts = token::Transfer {
+            from: ctx.accounts.prize.clone().to_account_info(),
+            to: ctx.accounts.user_ata.clone().to_account_info(),
+            authority: ctx.accounts.vault_manager.clone().to_account_info(),
+        };
 
-        // set winner as ticket owner
-        ctx.accounts.vault_manager.winner = ctx.accounts.ticket.owner;
-
-        Ok(())
+        // transfer prize to winner
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.clone().to_account_info(),
+                transfer_accounts,
+                &[&[
+                    ctx.accounts.mint.key().as_ref(),
+                    ctx.accounts.vault.key().as_ref(),
+                    &[vault_mgr_bump],
+                ]],
+            ),
+            ctx.accounts.prize.amount,
+        )
     }
 }
 
@@ -288,7 +292,7 @@ pub struct Buy<'info> {
 
     #[account(init,
         payer = user,
-        seeds = [&numbers],
+        seeds = [&numbers, vault_manager.key().as_ref()],
         bump = ticket_bump,
     )]
     pub ticket: Box<Account<'info, Ticket>>,
@@ -386,7 +390,7 @@ pub struct Draw<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8)]
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, numbers: [u8; 6], ticket_bump: u8)]
 pub struct Find<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -407,11 +411,20 @@ pub struct Find<'info> {
     #[account(mut)]
     pub tickets: Account<'info, token::Mint>,
 
-    #[account(mut)]
+    #[account(init_if_needed, payer = user, seeds = [&numbers, vault_manager.key().as_ref()], bump = ticket_bump)]
     pub ticket: Box<Account<'info, Ticket>>,
+
+    #[account(mut, has_one = mint)]
+    pub prize: Box<Account<'info, token::TokenAccount>>,
 
     #[account(mut)]
     pub user: Signer<'info>,
+
+    #[account(mut, has_one = mint)]
+    pub user_ata: Account<'info, token::TokenAccount>,
+
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, token::Token>,
 }
 
 #[account]
@@ -420,12 +433,10 @@ pub struct VaultManager {
     pub mint: Pubkey,
     pub vault: Pubkey,
     pub tickets: Pubkey,
-    pub vault_tickets_ata: Pubkey,
     pub draw_time: i64, // in ms, lottery end time
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
-    pub lottery_ended: bool,
-    pub winner: Pubkey,
+    pub lock_buy: bool, // lock buy in draw, unlock buy after find
 }
 
 #[account]
@@ -438,21 +449,14 @@ pub struct Ticket {
     pub numbers: [u8; 6],
 }
 
-#[account]
-#[derive(Default)]
-pub struct LotteryResult {
-    pub winner_exists: bool,
-    pub winner: Pubkey,
-}
-
 #[error]
 pub enum ErrorCode {
     #[msg("TimeRemaining")]
     TimeRemaining,
 
-    #[msg("NoWinner")]
-    NoWinner,
+    #[msg("Must call Find")]
+    CallFind,
 
-    #[msg("Lottery In Progress")]
-    LotteryInProgress,
+    #[msg("Invalid Numbers")]
+    InvalidNumbers,
 }
