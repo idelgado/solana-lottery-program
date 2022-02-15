@@ -168,14 +168,14 @@ pub mod no_loss_lottery {
         // check if the numbers match the winning numbers
         for (i, n) in winning_numbers.iter().enumerate() {
             if n != &ticket_numbers[i] {
-                // reset winning_numbers
-                // reset draw time
                 return Err(ErrorCode::NoWinner.into());
             }
         }
 
         // if the ticket_draw_time happened before the ticket_mint_time then this winning ticket was minted after the numbers were known
         if ctx.accounts.vault_manager.ticket_draw_time < ctx.accounts.ticket_data.ticket_mint_time {
+            // reset winning_numbers
+            // reset draw time
             return Err(ErrorCode::InvalidTicket.into());
         }
 
