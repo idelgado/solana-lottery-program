@@ -40,21 +40,53 @@ describe("no-loss-lottery", () => {
         program.programId
       );
 
+    const [tickets, ticketsBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [mint.publicKey.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
+        program.programId
+      );
+
+    const [vaultTicketsAta, vaultTicketsAtaBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [tickets.toBuffer()],
+        program.programId
+      );
+
+    const [prize, prizeBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        mint.publicKey.toBuffer(),
+        vault.toBuffer(),
+        vaultMgr.toBuffer(),
+        tickets.toBuffer(),
+      ],
+      program.programId
+    );
+
     // lottery draw timestamp (future)
     const drawMs = 3 * 1000;
     const now = new Date().getTime();
-    const draw = new anchor.BN(new Date(now + drawMs).getTime() / 1000);
+    const drawTime = new anchor.BN(new Date(now + drawMs).getTime() / 1000);
+
+    // ticket price in tokens
+    const ticketPrice = new anchor.BN(1);
 
     // init vault
     const initTxSig = await program.rpc.initialize(
       vaultBump,
       vaultMgrBump,
-      draw,
+      ticketsBump,
+      vaultTicketsAtaBump,
+      prizeBump,
+      drawTime,
+      ticketPrice,
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
+          tickets: tickets,
+          vaultTicketsAta: vaultTicketsAta,
+          prize: prize,
           user: program.provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: spl.TOKEN_PROGRAM_ID,
@@ -73,53 +105,113 @@ describe("no-loss-lottery", () => {
     await mint.mintTo(userAta.address, mintAuthority.publicKey, [], 100);
     console.log("minted 100 tokens to user_ata");
 
-    // deposit tokens into vault
-    const depositTxSig = await program.rpc.deposit(
+    // get user tickets ata
+    const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
+      spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+      spl.TOKEN_PROGRAM_ID,
+      tickets,
+      program.provider.wallet.publicKey
+    );
+
+    // choose your lucky numbers!
+    let numbers: Array<number>;
+    numbers = [1, 2, 3, 4, 5, 6];
+
+    // create ticket PDA
+    const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Uint8Array.from(numbers)],
+      program.programId
+    );
+
+    // buy a ticket
+    const buyTxSig = await program.rpc.buy(
       vaultBump,
       vaultMgrBump,
-      new anchor.BN(1),
+      ticketsBump,
+      vaultTicketsAtaBump,
+      ticketBump,
+      numbers,
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
+          tickets: tickets,
+          vaultTicketsAta: vaultTicketsAta,
+          ticket: ticket,
+          userTicketsAta: userTicketsAta,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        },
+      }
+    );
+    console.log("buySigTx:", buyTxSig);
+
+    // wait for draw to expire
+    await sleep(drawMs + 500);
+
+    // draw winner
+    const drawTxSig = await program.rpc.draw(
+      vaultBump,
+      vaultMgrBump,
+      ticketsBump,
+      {
+        accounts: {
+          mint: mint.publicKey,
+          vault: vault,
+          tickets: tickets,
+          vaultManager: vaultMgr,
+          user: program.provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: spl.TOKEN_PROGRAM_ID,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
       }
     );
-    console.log("depositSigTx:", depositTxSig);
-
-    // wait for draw to expire
-    await sleep(drawMs + 500);
-
-    // draw winner
-    const drawTxSig = await program.rpc.draw(vaultBump, vaultMgrBump, {
-      accounts: {
-        mint: mint.publicKey,
-        vault: vault,
-        vaultManager: vaultMgr,
-        user: program.provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: spl.TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      },
-    });
     console.log("drawTxSig:", drawTxSig);
+
+    // find winner
+    const findTxSig = await program.rpc.find(
+      vaultBump,
+      vaultMgrBump,
+      ticketsBump,
+      {
+        accounts: {
+          mint: mint.publicKey,
+          vault: vault,
+          vaultManager: vaultMgr,
+          tickets: tickets,
+          ticket: ticket,
+          user: program.provider.wallet.publicKey,
+        },
+      }
+    );
+    console.log("findTxSig:", findTxSig);
+
+    // mint tokens to prize for testing
+    await mint.mintTo(prize, mintAuthority.publicKey, [], 100);
+    console.log(
+      "minted 100 tokens to prize ata, dont actually do this in prod"
+    );
 
     // user withdraw tokens + any winnings
     const withdrawTxSig = await program.rpc.withdraw(
       vaultBump,
       vaultMgrBump,
+      ticketsBump,
+      prizeBump,
       new anchor.BN(1),
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
+          tickets: tickets,
+          prize: prize,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -143,7 +235,7 @@ async function newAccountWithLamports(
   // airdrop lamports
   let txSig = await connection.requestAirdrop(account.publicKey, lamports);
   await connection.confirmTransaction(txSig);
-  console.log("airdrop tx-sig: ", txSig);
+  console.log("airdropTxSig:", txSig);
 
   return account;
 }
@@ -152,4 +244,3 @@ async function newAccountWithLamports(
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
