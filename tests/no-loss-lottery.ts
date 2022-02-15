@@ -188,20 +188,22 @@ describe("no-loss-lottery", () => {
       "minted 100 tokens to prize ata, dont actually do this in prod"
     );
 
-    // user withdraw tokens + any winnings
-    const withdrawTxSig = await program.rpc.withdraw(
+    // user redeem tokens + any winnings
+    const redeemTxSig = await program.rpc.redeem(
       vaultBump,
       vaultMgrBump,
       ticketsBump,
+      ticketBump,
       prizeBump,
-      new anchor.BN(1),
       {
         accounts: {
           mint: mint.publicKey,
           vault: vault,
           vaultManager: vaultMgr,
           tickets: tickets,
+          ticket: ticket,
           prize: prize,
+          userTicketsAta: userTicketsAta,
           user: program.provider.wallet.publicKey,
           userAta: userAta.address,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -210,7 +212,7 @@ describe("no-loss-lottery", () => {
         },
       }
     );
-    console.log("withdrawTxSig:", withdrawTxSig);
+    console.log("redeemTxSig:", redeemTxSig);
   });
 });
 

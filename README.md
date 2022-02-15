@@ -25,16 +25,10 @@ No-loss lottery: Build a platform for users to deposit a variety of tokens into 
 ### TODO
 
 - VRF to pick a random winning ticket
-- lottery fees come from prize to me
 - close accounts after
 - draw cadence instead of draw time
-- check vault manager for winner info
-- reset cadence and winning numbers if no winner found
-- figure out optimal numbers array size or make configurable
-- configure withdraw to give prize to winner
 - what happens if winner never claims?
-- do not use ata for vault tickets
-- variable fee
+- buy and redeem multiple tickets at once
 
 #### Solve
 

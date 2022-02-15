@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::AccountsClose;
 use anchor_spl::{
     associated_token,
     token::{self},
@@ -82,20 +83,44 @@ pub mod no_loss_lottery {
         )
     }
 
-    pub fn withdraw(
-        ctx: Context<Withdraw>,
+    // redeem tickets for deposited tokens
+    pub fn redeem(
+        ctx: Context<Redeem>,
         _vault_bump: u8,
         vault_mgr_bump: u8,
         _tickets_bump: u8,
+        _ticket_bump: u8,
         _prize_bump: u8,
-        amount: u64,
     ) -> ProgramResult {
-        // if lottery is still running, do not allow withdrawals
+        // if lottery is still running, you cannot redeem
         if !ctx.accounts.vault_manager.lottery_ended {
             return Err(ErrorCode::LotteryInProgress.into());
         };
 
-        // if winner withdraws, give them the prize!
+        // burn a ticket from the user ATA
+        let burn_accounts = token::Burn {
+            mint: ctx.accounts.tickets.clone().to_account_info(),
+            to: ctx.accounts.user_tickets_ata.clone().to_account_info(),
+            authority: ctx.accounts.user.clone().to_account_info(),
+        };
+
+        // burn the ticket, we dont need to hold onto it
+        token::burn(
+            CpiContext::new(
+                ctx.accounts.token_program.clone().to_account_info(),
+                burn_accounts,
+            ),
+            1,
+        )?;
+
+        // close ticket PDA
+        // return SOL to user
+        ctx.accounts
+            .ticket
+            .close(ctx.accounts.user.clone().to_account_info())?;
+
+        // if winner redeems, give them the prize!
+        // TODO: mark winner as received prize
         if ctx.accounts.vault_manager.winner == ctx.accounts.user.key() {
             let prize_transfer_accounts = token::Transfer {
                 from: ctx.accounts.prize.clone().to_account_info(),
@@ -104,6 +129,7 @@ pub mod no_loss_lottery {
             };
 
             // transfer prize from vault to winner
+            // TODO how to get all of prize?
             token::transfer(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.clone().to_account_info(),
@@ -114,7 +140,7 @@ pub mod no_loss_lottery {
                         &[vault_mgr_bump],
                     ]],
                 ),
-                amount,
+                1,
             )?;
         };
 
@@ -135,7 +161,7 @@ pub mod no_loss_lottery {
                     &[vault_mgr_bump],
                 ]],
             ),
-            amount,
+            ctx.accounts.vault_manager.ticket_price,
         )
     }
 
@@ -286,8 +312,8 @@ pub struct Buy<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, prize_bump: u8)]
-pub struct Withdraw<'info> {
+#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, ticket_bump: u8, prize_bump: u8)]
+pub struct Redeem<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
@@ -307,8 +333,16 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub tickets: Account<'info, token::Mint>,
 
+    #[account(mut)]
+    pub ticket: Box<Account<'info, Ticket>>,
+
     #[account(mut, has_one = mint)]
     pub prize: Box<Account<'info, token::TokenAccount>>,
+
+    #[account(mut,
+        associated_token::mint = tickets,
+        associated_token::authority = user)]
+    pub user_tickets_ata: Box<Account<'info, token::TokenAccount>>,
 
     #[account(mut)]
     pub user: Signer<'info>,
