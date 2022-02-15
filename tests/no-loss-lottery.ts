@@ -46,12 +46,6 @@ describe("no-loss-lottery", () => {
         program.programId
       );
 
-    const [vaultTicketsAta, vaultTicketsAtaBump] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [tickets.toBuffer()],
-        program.programId
-      );
-
     const [prize, prizeBump] = await anchor.web3.PublicKey.findProgramAddress(
       [
         mint.publicKey.toBuffer(),
@@ -75,7 +69,6 @@ describe("no-loss-lottery", () => {
       vaultBump,
       vaultMgrBump,
       ticketsBump,
-      vaultTicketsAtaBump,
       prizeBump,
       drawTime,
       ticketPrice,
@@ -85,7 +78,6 @@ describe("no-loss-lottery", () => {
           vault: vault,
           vaultManager: vaultMgr,
           tickets: tickets,
-          vaultTicketsAta: vaultTicketsAta,
           prize: prize,
           user: program.provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -128,7 +120,6 @@ describe("no-loss-lottery", () => {
       vaultBump,
       vaultMgrBump,
       ticketsBump,
-      vaultTicketsAtaBump,
       ticketBump,
       numbers,
       {
@@ -137,7 +128,6 @@ describe("no-loss-lottery", () => {
           vault: vault,
           vaultManager: vaultMgr,
           tickets: tickets,
-          vaultTicketsAta: vaultTicketsAta,
           ticket: ticket,
           userTicketsAta: userTicketsAta,
           user: program.provider.wallet.publicKey,
