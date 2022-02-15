@@ -175,7 +175,7 @@ pub mod no_loss_lottery {
         // if the ticket_draw_time happened before the ticket_mint_time then this winning ticket was minted after the numbers were known
         if ctx.accounts.vault_manager.ticket_draw_time < ctx.accounts.ticket_data.ticket_mint_time {
             // reset winning_numbers
-            // reset draw time
+            // reset draw_time
             return Err(ErrorCode::InvalidTicket.into());
         }
 
