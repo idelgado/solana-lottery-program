@@ -39,9 +39,9 @@ pub mod no_loss_lottery {
         let ticket_account = &mut ctx.accounts.ticket_data;
         ticket_account.mint = ctx.accounts.mint.clone().key();
         ticket_account.vault = ctx.accounts.vault.clone().key();
-        ticket_account.owner = ctx.accounts.user.key();
         ticket_account.numbers = numbers;
         ticket_account.ticket_mint = ctx.accounts.ticket.clone().key();
+        ticket_account.ticket_mint_time = Clock::get()?.unix_timestamp;
 
         // transfer tokens from user wallet to vault
         let transfer_accounts = token::Transfer {
@@ -135,11 +135,7 @@ pub mod no_loss_lottery {
         )
     }
 
-    pub fn draw(
-        ctx: Context<Draw>,
-        _vault_bump: u8,
-        _vault_mgr_bump: u8,
-    ) -> ProgramResult {
+    pub fn draw(ctx: Context<Draw>, _vault_bump: u8, _vault_mgr_bump: u8) -> ProgramResult {
         // get current timestamp from Clock program
         let now = Clock::get()?.unix_timestamp;
 
@@ -153,6 +149,7 @@ pub mod no_loss_lottery {
 
         // set numbers in vault_manager account
         ctx.accounts.vault_manager.winning_numbers = numbers;
+        ctx.accounts.vault_manager.ticket_draw_time = now;
         Ok(())
     }
 
@@ -175,6 +172,11 @@ pub mod no_loss_lottery {
                 // reset draw time
                 return Err(ErrorCode::NoWinner.into());
             }
+        }
+
+        // if the ticket_draw_time happened before the ticket_mint_time then this winning ticket was minted after the numbers were known
+        if ctx.accounts.vault_manager.ticket_draw_time < ctx.accounts.ticket_data.ticket_mint_time {
+            return Err(ErrorCode::InvalidTicket.into());
         }
 
         // if winner found, end lottery
@@ -363,7 +365,8 @@ pub struct Find<'info> {
 pub struct VaultManager {
     pub mint: Pubkey,
     pub vault: Pubkey,
-    pub draw_time: i64, // in ms, lottery end time
+    pub draw_time: i64,        // in ms, lottery end time
+    pub ticket_draw_time: i64, // in ms, time when the winning numbers were chosen
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
     pub lottery_ended: bool,
@@ -376,7 +379,7 @@ pub struct Ticket {
     pub mint: Pubkey,
     pub vault: Pubkey,
     pub ticket_mint: Pubkey,
-    pub owner: Pubkey,
+    pub ticket_mint_time: i64,
     pub numbers: [u8; 6],
 }
 
@@ -390,4 +393,7 @@ pub enum ErrorCode {
 
     #[msg("Lottery In Progress")]
     LotteryInProgress,
+
+    #[msg("Invalid Ticket")]
+    InvalidTicket,
 }
