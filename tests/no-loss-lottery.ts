@@ -22,13 +22,13 @@ interface Config {
   bumps: Map<String, number>;
 }
 
-describe("buy", () => {
+describe("Buy", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
 
   const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
 
-  it("Buy Ticket", async () => {
+  it("Buy ticket", async () => {
     const config = await initialize(program);
     const numbers = [1, 2, 3, 4, 5, 6];
 
@@ -43,7 +43,7 @@ describe("buy", () => {
     );
   });
 
-  it("Buy Ticket with Invalid Numbers", async () => {
+  it("Buy ticket with invalid number values", async () => {
     const config = await initialize(program);
     const numbers = [0, 0, 0, 0, 0, 0];
 
@@ -59,21 +59,21 @@ describe("buy", () => {
     );
   });
 
-  it("Buy Ticket with Invalid Numbers Size", async () => {
+  it("Buy ticket with invalid input size", async () => {
     const config = await initialize(program);
     const numbers = [1, 2, 3];
 
     assert.rejects(async () => await buy(program, numbers, config, null));
   });
 
-  it("Buy Ticket with Invalid Number", async () => {
+  it("Buy ticket with invalid number value", async () => {
     const config = await initialize(program);
     const numbers = [1, 2, 3, 4, 5, 256];
 
     assert.rejects(async () => await buy(program, numbers, config, null));
   });
 
-  it("Buy ticket with same numbers ", async () => {
+  it("Buy ticket with duplicate ticket numbers", async () => {
     const config = await initialize(program);
     const numbers = [1, 2, 3, 4, 5, 6];
 
@@ -90,7 +90,7 @@ describe("buy", () => {
     assert.rejects(async () => await buy(program, numbers, config, null));
   });
 
-  it("Buy ticket with different numbers ", async () => {
+  it("Buy ticket with different numbers", async () => {
     const config = await initialize(program);
     const numbersA = [1, 2, 3, 4, 5, 6];
     const numbersB = [7, 8, 9, 10, 11, 12];
