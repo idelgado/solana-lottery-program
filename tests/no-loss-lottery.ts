@@ -29,47 +29,23 @@ describe("no-loss-lottery", () => {
   const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
 
   it("Buy Ticket", async () => {
-    let config = await initialize(program);
+    const config = await initialize(program);
+    const numbers = [1, 2, 3, 4, 5, 6];
+
+    const [ticket, ticketBump] = await buy(program, numbers, config)
+    await assertBalance(program, config.keys.get(USER_TICKET_ATA), 1)
+
+    const userKey = await program.account.ticket.fetch(ticket)
+    assertSamePublicKey(program.provider.wallet.publicKey, userKey.owner)
   });
 
   it("Smoke", async () => {
-    let config = await initialize(program);
+    const config = await initialize(program);
 
     // choose your lucky numbers!
-    let numbers: Array<number>;
-    numbers = [1, 2, 3, 4, 5, 6];
+    const numbers = [1, 2, 3, 4, 5, 6];
 
-    // create ticket PDA
-    const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Uint8Array.from(numbers), config.keys.get(VAULT_MANAGER).toBuffer()],
-      program.programId
-    );
-
-    // buy a ticket
-    const buyTxSig = await program.rpc.buy(
-      config.bumps.get(VAULT),
-      config.bumps.get(VAULT_MANAGER),
-      config.bumps.get(TICKETS),
-      ticketBump,
-      numbers,
-      {
-        accounts: {
-          mint: config.keys.get(MINT),
-          vault: config.keys.get(VAULT),
-          vaultManager: config.keys.get(VAULT_MANAGER),
-          tickets: config.keys.get(TICKETS),
-          ticket: ticket,
-          userTicketsAta: config.keys.get(USER_TICKET_ATA),
-          user: program.provider.wallet.publicKey,
-          userAta: config.keys.get(USER_MINT_ATA),
-          systemProgram: anchor.web3.SystemProgram.programId,
-          associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      }
-    );
-    console.log("buySigTx:", buyTxSig);
+    const [ticket, ticketBump] = await buy(program, numbers, config)
 
     // wait for draw to expire
     await sleep(DRAW_MS + 500);
@@ -181,6 +157,43 @@ async function newAccountWithLamports(
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+async function buy(program: Program<NoLossLottery>, numbers: Array<number>, config: Config):
+  Promise<[anchor.web3.PublicKey, number]> {
+    // create ticket PDA
+    const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Uint8Array.from(numbers), config.keys.get(VAULT_MANAGER).toBuffer()],
+      program.programId
+    );
+
+    // buy a ticket
+    const buyTxSig = await program.rpc.buy(
+      config.bumps.get(VAULT),
+      config.bumps.get(VAULT_MANAGER),
+      config.bumps.get(TICKETS),
+      ticketBump,
+      numbers,
+      {
+        accounts: {
+          mint: config.keys.get(MINT),
+          vault: config.keys.get(VAULT),
+          vaultManager: config.keys.get(VAULT_MANAGER),
+          tickets: config.keys.get(TICKETS),
+          ticket: ticket,
+          userTicketsAta: config.keys.get(USER_TICKET_ATA),
+          user: program.provider.wallet.publicKey,
+          userAta: config.keys.get(USER_MINT_ATA),
+          systemProgram: anchor.web3.SystemProgram.programId,
+          associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        },
+      }
+    );
+    console.log("buySigTx:", buyTxSig);
+
+    return [ticket, ticketBump]
+  };
 
 async function initialize(program: Program<NoLossLottery>): Promise<Config> {
   const mintAuthority = await newAccountWithLamports(
@@ -299,4 +312,13 @@ async function initialize(program: Program<NoLossLottery>): Promise<Config> {
   };
 
   return config;
+}
+
+async function assertBalance(program: Program<NoLossLottery>, account: anchor.web3.PublicKey, expectedBalance: number) {
+  const balance = await (await program.provider.connection.getTokenAccountBalance(account)).value.amount as unknown as number
+  assert.equal(balance, expectedBalance)
+}
+
+function assertSamePublicKey(key1: anchor.web3.PublicKey, key2: anchor.web3.PublicKey) {
+  return assert.equal(key1.toString(), key2.toString())
 }
