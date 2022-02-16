@@ -2,7 +2,7 @@ import * as anchor from "@project-serum/anchor";
 import * as spl from "@solana/spl-token";
 import * as assert from "assert";
 import * as switchboard from "@switchboard-xyz/switchboard-api";
-import { Program } from "@project-serum/anchor";
+import { Program, ProgramError } from "@project-serum/anchor";
 import { NoLossLottery } from "../target/types/no_loss_lottery";
 import { setAuthConfigs } from "@switchboard-xyz/switchboard-api";
 
@@ -32,12 +32,23 @@ describe("no-loss-lottery", () => {
     const config = await initialize(program);
     const numbers = [1, 2, 3, 4, 5, 6];
 
-    const [ticket, ticketBump] = await buy(program, numbers, config)
+    const [ticket, ticketBump] = await buy(program, numbers, config, null)
     await assertBalance(program, config.keys.get(USER_TICKET_ATA), 1)
 
     const userKey = await program.account.ticket.fetch(ticket)
-    assertSamePublicKey(program.provider.wallet.publicKey, userKey.owner)
+    assertPublicKey(assert.equal, program.provider.wallet.publicKey, userKey.owner)
   });
+
+  it("Buy Ticket with Invalid Numbers", async () => {
+    const config = await initialize(program);
+    const numbers = [0, 0, 0, 0, 0, 0];
+
+    const [ticket, ticketBump] = await buy(program, numbers, config, program.idl.errors[2].code)
+    assert.rejects(async () => await assertBalance(program, config.keys.get(USER_TICKET_ATA), 0))
+
+  });
+
+
 
   it("Smoke", async () => {
     const config = await initialize(program);
@@ -45,7 +56,7 @@ describe("no-loss-lottery", () => {
     // choose your lucky numbers!
     const numbers = [1, 2, 3, 4, 5, 6];
 
-    const [ticket, ticketBump] = await buy(program, numbers, config)
+    const [ticket, ticketBump] = await buy(program, numbers, config, null)
 
     // wait for draw to expire
     await sleep(DRAW_MS + 500);
@@ -158,7 +169,7 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function buy(program: Program<NoLossLottery>, numbers: Array<number>, config: Config):
+async function buy(program: Program<NoLossLottery>, numbers: Array<number>, config: Config, error: number|null):
   Promise<[anchor.web3.PublicKey, number]> {
     // create ticket PDA
     const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
@@ -167,6 +178,7 @@ async function buy(program: Program<NoLossLottery>, numbers: Array<number>, conf
     );
 
     // buy a ticket
+    try {
     const buyTxSig = await program.rpc.buy(
       config.bumps.get(VAULT),
       config.bumps.get(VAULT_MANAGER),
@@ -191,7 +203,13 @@ async function buy(program: Program<NoLossLottery>, numbers: Array<number>, conf
       }
     );
     console.log("buySigTx:", buyTxSig);
-
+    } catch(e) {
+      if (error) {
+        assert.equal(e.code, error)
+      } else {
+        throw e;
+      }
+    }
     return [ticket, ticketBump]
   };
 
@@ -319,6 +337,6 @@ async function assertBalance(program: Program<NoLossLottery>, account: anchor.we
   assert.equal(balance, expectedBalance)
 }
 
-function assertSamePublicKey(key1: anchor.web3.PublicKey, key2: anchor.web3.PublicKey) {
-  return assert.equal(key1.toString(), key2.toString())
+function assertPublicKey(f: Function, key1: anchor.web3.PublicKey, key2: anchor.web3.PublicKey) {
+  return f(key1.toString(), key2.toString())
 }
