@@ -1,10 +1,8 @@
 import * as anchor from "@project-serum/anchor";
 import * as spl from "@solana/spl-token";
 import * as assert from "assert";
-import * as switchboard from "@switchboard-xyz/switchboard-api";
 import { Program, ProgramError } from "@project-serum/anchor";
 import { NoLossLottery } from "../target/types/no_loss_lottery";
-import { setAuthConfigs } from "@switchboard-xyz/switchboard-api";
 
 const VAULT = "VAULT";
 const VAULT_MANAGER = "VAULT_MANAGER";
@@ -231,10 +229,71 @@ describe("Buy", () => {
   });
 });
 
+describe("Redeem", () => {
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.Provider.env());
+
+  const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
+
+  it("Redeem ticket", async () => {
+    const config = await initialize(program, 1);
+
+    // choose your lucky numbers!
+    const numbers = [1, 2, 3, 4, 5, 6];
+
+    const [ticket, ticketBump] = await buy(program, numbers, config, null);
+
+    // balance is 0 after buying a ticket
+    await assertBalance(program, config.keys.get(USER_MINT_ATA), 0);
+
+    await redeem(program, config, ticket, ticketBump, null);
+
+    // we get our token back
+    await assertBalance(program, config.keys.get(USER_MINT_ATA), 1);
+  });
+
+  it("Redeem 2 tickets", async () => {
+    const config = await initialize(program, 2);
+
+    // choose your lucky numbers!
+    const numbers1 = [1, 2, 3, 4, 5, 6];
+    const numbers2 = [1, 2, 3, 4, 5, 7];
+
+    const [ticket1, ticketBump1] = await buy(program, numbers1, config, null);
+    const [ticket2, ticketBump2] = await buy(program, numbers2, config, null);
+
+    // balance is 0 after buying 2 tickets
+    await assertBalance(program, config.keys.get(USER_MINT_ATA), 0);
+
+    await redeem(program, config, ticket1, ticketBump1, null);
+    await redeem(program, config, ticket2, ticketBump2, null);
+
+    // we get our tokens back
+    await assertBalance(program, config.keys.get(USER_MINT_ATA), 2);
+  });
+
+  it("Redeem same ticket twice", async () => {
+    const config = await initialize(program);
+
+    // choose your lucky numbers!
+    const numbers = [1, 2, 3, 4, 5, 6];
+
+    const [ticket, ticketBump] = await buy(program, numbers, config, null);
+
+    await redeem(program, config, ticket, ticketBump, null);
+    assert.rejects(
+      async () => await redeem(program, config, ticket, ticketBump, null)
+    );
+
+    // we get our token back
+    await assertBalance(program, config.keys.get(USER_MINT_ATA), 100);
+  });
+});
+
 // create new Account and seed with lamports
 async function newAccountWithLamports(
   connection: anchor.web3.Connection,
-  lamports: number = 100_000_000_000_000
+  lamports: number = 100_000_000
 ): Promise<anchor.web3.Account> {
   // generate keypair
   const account = new anchor.web3.Account();
@@ -244,15 +303,22 @@ async function newAccountWithLamports(
   await connection.confirmTransaction(txSig);
   console.log("airdropTxSig:", txSig);
 
+  // check account balance
+  const lamportsBalance = await connection.getBalance(account.publicKey);
+  console.log("lamports balance:", lamportsBalance);
+
   return account;
 }
 
-// slep current thread in milliseconds
+// sleep current thread in milliseconds
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function initialize(program: Program<NoLossLottery>, userAtaBalance = 100): Promise<Config> {
+async function initialize(
+  program: Program<NoLossLottery>,
+  userAtaBalance = 100
+): Promise<Config> {
   const mintAuthority = await newAccountWithLamports(
     program.provider.connection
   );
@@ -333,7 +399,12 @@ async function initialize(program: Program<NoLossLottery>, userAtaBalance = 100)
   );
 
   // mint tokens to user_ata
-  await mint.mintTo(userAta.address, mintAuthority.publicKey, [], userAtaBalance);
+  await mint.mintTo(
+    userAta.address,
+    mintAuthority.publicKey,
+    [],
+    userAtaBalance
+  );
   console.log("minted 100 tokens to user_ata");
 
   // get user tickets ata
@@ -417,6 +488,48 @@ async function buy(
     }
   }
   return [ticket, ticketBump];
+}
+
+async function redeem(
+  program: Program<NoLossLottery>,
+  config: Config,
+  ticket: anchor.web3.PublicKey,
+  ticketBump: number,
+  error: number | null
+) {
+  try {
+    // user redeem token
+    const redeemTxSig = await program.rpc.redeem(
+      config.bumps.get(VAULT),
+      config.bumps.get(VAULT_MANAGER),
+      config.bumps.get(TICKETS),
+      ticketBump,
+      config.bumps.get(PRIZE),
+      {
+        accounts: {
+          mint: config.keys.get(MINT),
+          vault: config.keys.get(VAULT),
+          tickets: config.keys.get(TICKETS),
+          vaultManager: config.keys.get(VAULT_MANAGER),
+          ticket: ticket,
+          prize: config.keys.get(PRIZE),
+          userTicketsAta: config.keys.get(USER_TICKET_ATA),
+          user: program.provider.wallet.publicKey,
+          userAta: config.keys.get(USER_MINT_ATA),
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        },
+      }
+    );
+    console.log("redeemTxSig:", redeemTxSig);
+  } catch (e) {
+    if (error) {
+      assert.equal(e.code, error);
+    } else {
+      throw e;
+    }
+  }
 }
 
 async function assertBalance(

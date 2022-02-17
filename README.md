@@ -26,6 +26,7 @@ No-loss lottery: Build a platform for users to deposit a variety of tokens into 
 
 - VRF to pick a random winning ticket
 - draw cadence instead of draw time
-- buy and redeem multiple tickets at once
 - stake
 - emit event if no winner for the front end
+- soteria
+- github actions
