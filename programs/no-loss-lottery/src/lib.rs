@@ -56,7 +56,7 @@ pub mod no_loss_lottery {
 
         // if buy is locked, call find
         if ctx.accounts.vault_manager.locked {
-            return Err(ErrorCode::CallFind.into());
+            return Err(ErrorCode::CallDispense.into());
         }
 
         // create ticket PDA data
@@ -69,7 +69,7 @@ pub mod no_loss_lottery {
 
         // transfer tokens from user wallet to vault
         let transfer_accounts = token::Transfer {
-            from: ctx.accounts.user_ata.clone().to_account_info(),
+            from: ctx.accounts.user_deposit_ata.clone().to_account_info(),
             to: ctx.accounts.vault.clone().to_account_info(),
             authority: ctx.accounts.user.clone().to_account_info(),
         };
@@ -137,7 +137,7 @@ pub mod no_loss_lottery {
 
         let transfer_accounts = token::Transfer {
             from: ctx.accounts.vault.clone().to_account_info(),
-            to: ctx.accounts.user_ata.clone().to_account_info(),
+            to: ctx.accounts.user_deposit_ata.clone().to_account_info(),
             authority: ctx.accounts.vault_manager.clone().to_account_info(),
         };
 
@@ -171,7 +171,7 @@ pub mod no_loss_lottery {
 
         // if locked, dont call draw
         if ctx.accounts.vault_manager.locked {
-            return Err(ErrorCode::CallFind.into());
+            return Err(ErrorCode::CallDispense.into());
         }
 
         let now = get_current_time();
@@ -196,14 +196,19 @@ pub mod no_loss_lottery {
     // force passing in the winning numbers PDA
     // if PDA exists, send prize
     // if not error
-    pub fn find(
-        ctx: Context<Find>,
+    pub fn dispense(
+        ctx: Context<Dispense>,
         _vault_bump: u8,
         vault_mgr_bump: u8,
         _tickets_bump: u8,
-        _numbers: [u8; 6],
+        numbers: [u8; 6],
         _ticket_bump: u8,
     ) -> ProgramResult {
+        // crank must pass in winning PDA
+        if numbers != ctx.accounts.vault_manager.winning_numbers {
+            return Err(ErrorCode::PassInWinningPDA.into());
+        }
+
         let now = get_current_time();
 
         // set next cutoff time
@@ -229,7 +234,7 @@ pub mod no_loss_lottery {
 
         let transfer_accounts = token::Transfer {
             from: ctx.accounts.prize.clone().to_account_info(),
-            to: ctx.accounts.user_ata.clone().to_account_info(),
+            to: ctx.accounts.user_deposit_ata.clone().to_account_info(),
             authority: ctx.accounts.vault_manager.clone().to_account_info(),
         };
 
@@ -334,7 +339,7 @@ pub struct Buy<'info> {
     pub user: Signer<'info>,
 
     #[account(mut, has_one = mint)]
-    pub user_ata: Account<'info, token::TokenAccount>,
+    pub user_deposit_ata: Account<'info, token::TokenAccount>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, token::Token>,
@@ -379,7 +384,7 @@ pub struct Redeem<'info> {
     pub user: Signer<'info>,
 
     #[account(mut, has_one = mint)]
-    pub user_ata: Account<'info, token::TokenAccount>,
+    pub user_deposit_ata: Account<'info, token::TokenAccount>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, token::Token>,
@@ -418,7 +423,7 @@ pub struct Draw<'info> {
 
 #[derive(Accounts)]
 #[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, numbers: [u8; 6], ticket_bump: u8)]
-pub struct Find<'info> {
+pub struct Dispense<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
@@ -448,7 +453,7 @@ pub struct Find<'info> {
     pub user: Signer<'info>,
 
     #[account(mut, has_one = mint)]
-    pub user_ata: Account<'info, token::TokenAccount>,
+    pub user_deposit_ata: Account<'info, token::TokenAccount>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, token::Token>,
@@ -464,7 +469,7 @@ pub struct VaultManager {
     pub draw_duration: u64, // in seconds, duration until next draw time
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
-    pub locked: bool, // when draw is called, lock the program until Find is called
+    pub locked: bool, // when draw is called, lock the program until Dispense is called
 }
 
 #[account]
@@ -482,14 +487,17 @@ pub enum ErrorCode {
     #[msg("TimeRemaining")]
     TimeRemaining,
 
-    #[msg("Must call Find")]
-    CallFind,
+    #[msg("Must call Dispense")]
+    CallDispense,
 
     #[msg("Invalid Numbers")]
     InvalidNumbers,
 
     #[msg("No Tickets Purchased")]
     NoTicketsPurchased,
+
+    #[msg("Must Pass in Winning PDA to Dispense")]
+    PassInWinningPDA,
 }
 
 fn get_current_time() -> u64 {
