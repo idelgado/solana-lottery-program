@@ -16,12 +16,13 @@ pub mod no_loss_lottery {
         _vault_mgr_bump: u8,
         _tickets_bump: u8,
         _prize_bump: u8,
-        draw_time: i64,
+        draw_duration: u64,
         ticket_price: u64,
     ) -> ProgramResult {
         // set vault manager config
         let vault_mgr = &mut ctx.accounts.vault_manager;
-        vault_mgr.draw_time = draw_time;
+        vault_mgr.draw_duration = draw_duration;
+        vault_mgr.cutoff_time = 0;
         vault_mgr.ticket_price = ticket_price;
         vault_mgr.mint = ctx.accounts.mint.clone().key();
         vault_mgr.vault = ctx.accounts.vault.clone().key();
@@ -38,13 +39,23 @@ pub mod no_loss_lottery {
         _ticket_bump: u8,
         numbers: [u8; 6],
     ) -> ProgramResult {
+        // if cutoff_time is 0, drawing has never started
+        if ctx.accounts.vault_manager.cutoff_time == 0 {
+            // get current timestamp from Clock program
+            let now = get_current_time();
+
+            // set last draw time to now
+            ctx.accounts.vault_manager.cutoff_time =
+                now as u64 + ctx.accounts.vault_manager.draw_duration;
+        };
+
         // do not allow user to pass in zeroed array of numbers
         if numbers == [0u8; 6] {
             return Err(ErrorCode::InvalidNumbers.into());
         }
 
-        // if buy is locked this means someone needs to call find
-        if ctx.accounts.vault_manager.lock_buy {
+        // if buy is locked, call find
+        if ctx.accounts.vault_manager.locked {
             return Err(ErrorCode::CallFind.into());
         }
 
@@ -151,11 +162,22 @@ pub mod no_loss_lottery {
         _vault_mgr_bump: u8,
         _tickets_bump: u8,
     ) -> ProgramResult {
-        // get current timestamp from Clock program
-        let now = Clock::get()?.unix_timestamp;
+        let cutoff_time = ctx.accounts.vault_manager.cutoff_time;
+
+        // if no tickets have been purchased, do not draw
+        if cutoff_time == 0 {
+            return Err(ErrorCode::NoTicketsPurchased.into());
+        }
+
+        // if locked, dont call draw
+        if ctx.accounts.vault_manager.locked {
+            return Err(ErrorCode::CallFind.into());
+        }
+
+        let now = get_current_time();
 
         // if time remaining then error
-        if now < ctx.accounts.vault_manager.draw_time {
+        if now < cutoff_time {
             return Err(ErrorCode::TimeRemaining.into());
         }
 
@@ -165,8 +187,8 @@ pub mod no_loss_lottery {
         // set numbers in vault_manager account
         ctx.accounts.vault_manager.winning_numbers = numbers;
 
-        // lock `buy` function until `find` called
-        ctx.accounts.vault_manager.lock_buy = true;
+        // locked `buy` function until `find` called
+        ctx.accounts.vault_manager.locked = true;
         Ok(())
     }
 
@@ -182,8 +204,13 @@ pub mod no_loss_lottery {
         _numbers: [u8; 6],
         _ticket_bump: u8,
     ) -> ProgramResult {
+        let now = get_current_time();
+
+        // set next cutoff time
+        ctx.accounts.vault_manager.cutoff_time = now + ctx.accounts.vault_manager.draw_duration;
+
         // unlock buy tickets
-        ctx.accounts.vault_manager.lock_buy = false;
+        ctx.accounts.vault_manager.locked = false;
 
         // zero out winning numbers
         ctx.accounts.vault_manager.winning_numbers = [0u8; 6];
@@ -433,10 +460,11 @@ pub struct VaultManager {
     pub mint: Pubkey,
     pub vault: Pubkey,
     pub tickets: Pubkey,
-    pub draw_time: i64, // in ms, lottery end time
+    pub cutoff_time: u64,   // in seconds, cutoff time for next draw
+    pub draw_duration: u64, // in seconds, duration until next draw time
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
-    pub lock_buy: bool, // lock buy in draw, unlock buy after find
+    pub locked: bool, // when draw is called, lock the program until Find is called
 }
 
 #[account]
@@ -459,4 +487,11 @@ pub enum ErrorCode {
 
     #[msg("Invalid Numbers")]
     InvalidNumbers,
+
+    #[msg("No Tickets Purchased")]
+    NoTicketsPurchased,
+}
+
+fn get_current_time() -> u64 {
+    return Clock::get().unwrap().unix_timestamp as u64;
 }

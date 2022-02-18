@@ -1,7 +1,7 @@
 import * as anchor from "@project-serum/anchor";
 import * as spl from "@solana/spl-token";
 import * as assert from "assert";
-import { Program, ProgramError } from "@project-serum/anchor";
+import { Program } from "@project-serum/anchor";
 import { NoLossLottery } from "../target/types/no_loss_lottery";
 
 const VAULT = "VAULT";
@@ -12,8 +12,6 @@ const TICKETS = "TICKETS";
 const PRIZE = "PRIZE";
 const USER_MINT_ATA = "USER_MINT_ATA";
 const USER_TICKET_ATA = "USER_TICKET_ATA";
-
-const DRAW_MS = 1 * 1000;
 
 interface Config {
   keys: Map<String, anchor.web3.PublicKey>;
@@ -27,7 +25,9 @@ describe("Buy", () => {
   const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
 
   it("Buy ticket", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds);
     const numbers = [1, 2, 3, 4, 5, 6];
 
     const [ticket, ticketBump] = await buy(program, numbers, config, null);
@@ -42,7 +42,8 @@ describe("Buy", () => {
   });
 
   it("Buy ticket with invalid number values", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+    const config = await initialize(program, drawDurationSeconds);
     const numbers = [0, 0, 0, 0, 0, 0];
 
     const [ticket, ticketBump] = await buy(
@@ -58,21 +59,26 @@ describe("Buy", () => {
   });
 
   it("Buy ticket with invalid input size", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+    const config = await initialize(program, drawDurationSeconds);
     const numbers = [1, 2, 3];
 
     assert.rejects(async () => await buy(program, numbers, config, null));
   });
 
   it("Buy ticket with invalid number value", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds);
     const numbers = [1, 2, 3, 4, 5, 256];
 
     assert.rejects(async () => await buy(program, numbers, config, null));
   });
 
   it("Buy ticket with duplicate ticket numbers", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds);
     const numbers = [1, 2, 3, 4, 5, 6];
 
     const [ticket, ticketBump] = await buy(program, numbers, config, null);
@@ -89,7 +95,9 @@ describe("Buy", () => {
   });
 
   it("Buy ticket with different numbers", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds);
     const numbersA = [1, 2, 3, 4, 5, 6];
     const numbersB = [7, 8, 9, 10, 11, 12];
 
@@ -115,7 +123,9 @@ describe("Buy", () => {
   });
 
   it("Buy second ticket with insufficient funds", async () => {
-    const config = await initialize(program, 1);
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds);
     const numbersA = [1, 2, 3, 4, 5, 6];
     const numbersB = [7, 8, 9, 10, 11, 12];
 
@@ -132,7 +142,9 @@ describe("Buy", () => {
   });
 
   it("Smoke", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds);
 
     // choose your lucky numbers!
     const numbers = [1, 2, 3, 4, 5, 6];
@@ -140,7 +152,8 @@ describe("Buy", () => {
     const [ticket, ticketBump] = await buy(program, numbers, config, null);
 
     // wait for draw to expire
-    await sleep(DRAW_MS + 500);
+    // adding seconds with MS
+    await sleep(drawDurationSeconds + 1);
 
     // draw winner
     const drawTxSig = await program.rpc.draw(
@@ -236,7 +249,8 @@ describe("Redeem", () => {
   const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
 
   it("Redeem ticket", async () => {
-    const config = await initialize(program, 1);
+    const drawDurationSeconds = 1;
+    const config = await initialize(program, drawDurationSeconds, 1);
 
     // choose your lucky numbers!
     const numbers = [1, 2, 3, 4, 5, 6];
@@ -253,7 +267,8 @@ describe("Redeem", () => {
   });
 
   it("Redeem 2 tickets", async () => {
-    const config = await initialize(program, 2);
+    const drawDurationSeconds = 1;
+    const config = await initialize(program, drawDurationSeconds, 2);
 
     // choose your lucky numbers!
     const numbers1 = [1, 2, 3, 4, 5, 6];
@@ -273,7 +288,8 @@ describe("Redeem", () => {
   });
 
   it("Redeem same ticket twice", async () => {
-    const config = await initialize(program);
+    const drawDurationSeconds = 1;
+    const config = await initialize(program, drawDurationSeconds);
 
     // choose your lucky numbers!
     const numbers = [1, 2, 3, 4, 5, 6];
@@ -287,6 +303,89 @@ describe("Redeem", () => {
 
     // we get our token back
     await assertBalance(program, config.keys.get(USER_MINT_ATA), 100);
+  });
+});
+
+describe("Draw", () => {
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.Provider.env());
+
+  const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
+
+  it("Draw numbers", async () => {
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds, 1);
+
+    // choose your lucky numbers!
+    const numbers = [1, 2, 3, 4, 5, 6];
+
+    const [ticket, ticketBump] = await buy(program, numbers, config, null);
+
+    // wait for cutoff_time to expire
+    await sleep(drawDurationSeconds + 1);
+
+    await draw(program, config, null);
+  });
+
+  it("Draw without any tickets purchased", async () => {
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds, 1);
+
+    await draw(program, config, program.idl.errors[3].code);
+  });
+
+  it("Draw before cutoff_time", async () => {
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds, 1);
+
+    // choose your lucky numbers!
+    const numbers = [1, 2, 3, 4, 5, 6];
+
+    await buy(program, numbers, config, null);
+
+    await draw(program, config, program.idl.errors[0].code);
+  });
+
+  it("Draw multiple times", async () => {
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds, 1);
+
+    // choose your lucky numbers!
+    const numbers = [1, 2, 3, 4, 5, 6];
+
+    await buy(program, numbers, config, null);
+
+    // wait for cutoff_time to expire
+    await sleep(drawDurationSeconds + 1);
+
+    await draw(program, config, null);
+    await draw(program, config, program.idl.errors[1].code);
+  });
+
+  it("Attempt to buy ticket between draw and find", async () => {
+    const drawDurationSeconds = 1;
+
+    const config = await initialize(program, drawDurationSeconds, 1);
+
+    // choose your lucky numbers!
+    const numbers1 = [1, 2, 3, 4, 5, 6];
+
+    await buy(program, numbers1, config, null);
+
+    // wait for cutoff_time to expire
+    await sleep(drawDurationSeconds + 1);
+
+    await draw(program, config, null);
+
+    // choose your lucky numbers!
+    const numbers2 = [1, 2, 3, 4, 5, 7];
+
+    // call buy without calling find
+    await buy(program, numbers2, config, program.idl.errors[1].code);
   });
 });
 
@@ -310,13 +409,15 @@ async function newAccountWithLamports(
   return account;
 }
 
-// sleep current thread in milliseconds
-async function sleep(ms: number) {
+// sleep current thread in seconds
+async function sleep(seconds: number) {
+  const ms = seconds * 1000;
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function initialize(
   program: Program<NoLossLottery>,
+  drawDurationSeconds: number,
   userAtaBalance = 100
 ): Promise<Config> {
   const mintAuthority = await newAccountWithLamports(
@@ -362,10 +463,6 @@ async function initialize(
     program.programId
   );
 
-  // lottery draw timestamp (future)
-  const now = new Date().getTime();
-  const drawTime = new anchor.BN(new Date(now + DRAW_MS).getTime() / 1000);
-
   // ticket price in tokens
   const ticketPrice = new anchor.BN(1);
 
@@ -375,7 +472,7 @@ async function initialize(
     vaultMgrBump,
     ticketsBump,
     prizeBump,
-    drawTime,
+    new anchor.BN(drawDurationSeconds),
     ticketPrice,
     {
       accounts: {
@@ -523,6 +620,40 @@ async function redeem(
       }
     );
     console.log("redeemTxSig:", redeemTxSig);
+  } catch (e) {
+    if (error) {
+      assert.equal(e.code, error);
+    } else {
+      throw e;
+    }
+  }
+}
+
+async function draw(
+  program: Program<NoLossLottery>,
+  config: Config,
+  error: number | null
+) {
+  try {
+    // draw winner
+    const drawTxSig = await program.rpc.draw(
+      config.bumps.get(VAULT),
+      config.bumps.get(VAULT_MANAGER),
+      config.bumps.get(TICKETS),
+      {
+        accounts: {
+          mint: config.keys.get(MINT),
+          vault: config.keys.get(VAULT),
+          tickets: config.keys.get(TICKETS),
+          vaultManager: config.keys.get(VAULT_MANAGER),
+          user: program.provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: spl.TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        },
+      }
+    );
+    console.log("drawTxSig:", drawTxSig);
   } catch (e) {
     if (error) {
       assert.equal(e.code, error);
