@@ -13,7 +13,7 @@ anchor test
 No-loss lottery: Build a platform for users to deposit a variety of tokens into a pool and then connect the pool to a Solana lending protocol which aggregates funds and rewards the interest to a winner over a period of time.
 
 
-## DB thoughts
+## lottery flow
 
 - users choose 6 numbers, creates PDA numbers and vault pubkey as seed
 - users calls `buy` adds in their PDA, receives ticket
@@ -25,8 +25,6 @@ No-loss lottery: Build a platform for users to deposit a variety of tokens into 
 ### TODO
 
 - VRF to pick a random winning ticket
-- draw cadence instead of draw time
-- stake
-- emit event if no winner for the front end
+- swap
 - soteria
-- github actions
+- github actions automated deploy pipeline

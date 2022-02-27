@@ -17,7 +17,6 @@ const PRIZE_AMOUNT = 100;
 
 interface Config {
   keys: Map<String, anchor.web3.PublicKey>;
-  bumps: Map<String, number>;
 }
 
 describe("Buy", () => {
@@ -534,37 +533,36 @@ async function initialize(
   );
 
   // create mint for testing
-  const mint = await spl.Token.createMint(
+  const mint = await spl.createMint(
     program.provider.connection,
     mintAuthority,
     mintAuthority.publicKey,
     null,
-    9,
-    spl.TOKEN_PROGRAM_ID
+    9
   );
   console.log("test mint created");
 
   // get PDAs
 
   const [vault, vaultBump] = await anchor.web3.PublicKey.findProgramAddress(
-    [mint.publicKey.toBuffer()],
+    [mint.toBuffer()],
     program.programId
   );
 
   const [vaultMgr, vaultMgrBump] =
     await anchor.web3.PublicKey.findProgramAddress(
-      [mint.publicKey.toBuffer(), vault.toBuffer()],
+      [mint.toBuffer(), vault.toBuffer()],
       program.programId
     );
 
   const [tickets, ticketsBump] = await anchor.web3.PublicKey.findProgramAddress(
-    [mint.publicKey.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
+    [mint.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
     program.programId
   );
 
   const [prize, prizeBump] = await anchor.web3.PublicKey.findProgramAddress(
     [
-      mint.publicKey.toBuffer(),
+      mint.toBuffer(),
       vault.toBuffer(),
       vaultMgr.toBuffer(),
       tickets.toBuffer(),
@@ -577,15 +575,11 @@ async function initialize(
 
   // init vault
   const initTxSig = await program.rpc.initialize(
-    vaultBump,
-    vaultMgrBump,
-    ticketsBump,
-    prizeBump,
     new anchor.BN(drawDurationSeconds),
     ticketPrice,
     {
       accounts: {
-        mint: mint.publicKey,
+        mint: mint,
         vault: vault,
         vaultManager: vaultMgr,
         tickets: tickets,
@@ -600,43 +594,52 @@ async function initialize(
   console.log("initTxSig:", initTxSig);
 
   // get user ata
-  const userDepositAta = await mint.getOrCreateAssociatedAccountInfo(
+  const userDepositAta = await spl.getOrCreateAssociatedTokenAccount(
+    program.provider.connection,
+    mintAuthority,
+    mint,
     program.provider.wallet.publicKey
   );
 
   // mint tokens to user_ata
-  await mint.mintTo(
+  await spl.mintTo(
+    program.provider.connection,
+    mintAuthority,
+    mint,
     userDepositAta.address,
     mintAuthority.publicKey,
-    [],
     userDepositAtaBalance
   );
   console.log("minted %d tokens to user_ata", userDepositAtaBalance);
 
   // get user tickets ata
-  const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
-    spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-    spl.TOKEN_PROGRAM_ID,
+  const userTicketsAta = await spl.getOrCreateAssociatedTokenAccount(
+    program.provider.connection,
+    mintAuthority,
     tickets,
     program.provider.wallet.publicKey
   );
 
   // mint tokens to prize for testing
-  await mint.mintTo(prize, mintAuthority.publicKey, [], PRIZE_AMOUNT);
-  console.log(
-    "minted %d tokens to prize ata, dont actually do this in prod",
+  await spl.mintTo(
+    program.provider.connection,
+    mintAuthority,
+    mint,
+    prize,
+    mintAuthority.publicKey,
     PRIZE_AMOUNT
   );
+  console.log("minted %d tokens to prize ata", PRIZE_AMOUNT);
 
   let keys = new Map<String, anchor.web3.PublicKey>();
   keys.set(VAULT, vault);
   keys.set(VAULT_MANAGER, vaultMgr);
-  keys.set(MINT, mint.publicKey);
+  keys.set(MINT, mint);
   keys.set(MINT_AUTHORITY, mintAuthority.publicKey);
   keys.set(TICKETS, tickets);
   keys.set(PRIZE, prize);
   keys.set(USER_DEPOSIT_ATA, userDepositAta.address);
-  keys.set(USER_TICKET_ATA, userTicketsAta);
+  keys.set(USER_TICKET_ATA, userTicketsAta.address);
 
   let bumps = new Map<String, number>();
   bumps.set(VAULT, vaultBump);
@@ -645,7 +648,6 @@ async function initialize(
 
   const config: Config = {
     keys: keys,
-    bumps: bumps,
   };
 
   return config;
@@ -665,29 +667,22 @@ async function buy(
 
   // buy a ticket
   try {
-    const buyTxSig = await program.rpc.buy(
-      config.bumps.get(VAULT),
-      config.bumps.get(VAULT_MANAGER),
-      config.bumps.get(TICKETS),
-      ticketBump,
-      numbers,
-      {
-        accounts: {
-          mint: config.keys.get(MINT),
-          vault: config.keys.get(VAULT),
-          vaultManager: config.keys.get(VAULT_MANAGER),
-          tickets: config.keys.get(TICKETS),
-          ticket: ticket,
-          userTicketsAta: config.keys.get(USER_TICKET_ATA),
-          user: program.provider.wallet.publicKey,
-          userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
-          systemProgram: anchor.web3.SystemProgram.programId,
-          associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      }
-    );
+    const buyTxSig = await program.rpc.buy(numbers, {
+      accounts: {
+        mint: config.keys.get(MINT),
+        vault: config.keys.get(VAULT),
+        vaultManager: config.keys.get(VAULT_MANAGER),
+        tickets: config.keys.get(TICKETS),
+        ticket: ticket,
+        userTicketsAta: config.keys.get(USER_TICKET_ATA),
+        user: program.provider.wallet.publicKey,
+        userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
+        systemProgram: anchor.web3.SystemProgram.programId,
+        associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+    });
     console.log("buySigTx:", buyTxSig);
   } catch (e) {
     if (error) {
@@ -708,29 +703,22 @@ async function redeem(
 ) {
   try {
     // user redeem token
-    const redeemTxSig = await program.rpc.redeem(
-      config.bumps.get(VAULT),
-      config.bumps.get(VAULT_MANAGER),
-      config.bumps.get(TICKETS),
-      ticketBump,
-      config.bumps.get(PRIZE),
-      {
-        accounts: {
-          mint: config.keys.get(MINT),
-          vault: config.keys.get(VAULT),
-          tickets: config.keys.get(TICKETS),
-          vaultManager: config.keys.get(VAULT_MANAGER),
-          ticket: ticket,
-          prize: config.keys.get(PRIZE),
-          userTicketsAta: config.keys.get(USER_TICKET_ATA),
-          user: program.provider.wallet.publicKey,
-          userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      }
-    );
+    const redeemTxSig = await program.rpc.redeem({
+      accounts: {
+        mint: config.keys.get(MINT),
+        vault: config.keys.get(VAULT),
+        tickets: config.keys.get(TICKETS),
+        vaultManager: config.keys.get(VAULT_MANAGER),
+        ticket: ticket,
+        prize: config.keys.get(PRIZE),
+        userTicketsAta: config.keys.get(USER_TICKET_ATA),
+        user: program.provider.wallet.publicKey,
+        userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+    });
     console.log("redeemTxSig:", redeemTxSig);
   } catch (e) {
     if (error) {
@@ -748,23 +736,18 @@ async function draw(
 ) {
   try {
     // draw winner
-    const drawTxSig = await program.rpc.draw(
-      config.bumps.get(VAULT),
-      config.bumps.get(VAULT_MANAGER),
-      config.bumps.get(TICKETS),
-      {
-        accounts: {
-          mint: config.keys.get(MINT),
-          vault: config.keys.get(VAULT),
-          tickets: config.keys.get(TICKETS),
-          vaultManager: config.keys.get(VAULT_MANAGER),
-          user: program.provider.wallet.publicKey,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      }
-    );
+    const drawTxSig = await program.rpc.draw({
+      accounts: {
+        mint: config.keys.get(MINT),
+        vault: config.keys.get(VAULT),
+        tickets: config.keys.get(TICKETS),
+        vaultManager: config.keys.get(VAULT_MANAGER),
+        user: program.provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+    });
     console.log("drawTxSig:", drawTxSig);
   } catch (e) {
     if (error) {
@@ -794,27 +777,20 @@ async function dispense(
     );
 
     // dispense prize to winner
-    const dispenseTxSig = await program.rpc.dispense(
-      config.bumps.get(VAULT),
-      config.bumps.get(VAULT_MANAGER),
-      config.bumps.get(TICKETS),
-      numbers,
-      ticketBump,
-      {
-        accounts: {
-          mint: config.keys.get(MINT),
-          vault: config.keys.get(VAULT),
-          tickets: config.keys.get(TICKETS),
-          vaultManager: config.keys.get(VAULT_MANAGER),
-          ticket: ticket,
-          prize: config.keys.get(PRIZE),
-          user: program.provider.wallet.publicKey,
-          userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-        },
-      }
-    );
+    const dispenseTxSig = await program.rpc.dispense(numbers, {
+      accounts: {
+        mint: config.keys.get(MINT),
+        vault: config.keys.get(VAULT),
+        tickets: config.keys.get(TICKETS),
+        vaultManager: config.keys.get(VAULT_MANAGER),
+        ticket: ticket,
+        prize: config.keys.get(PRIZE),
+        user: program.provider.wallet.publicKey,
+        userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+      },
+    });
     console.log("dispenseTxSig:", dispenseTxSig);
   } catch (e) {
     if (error) {

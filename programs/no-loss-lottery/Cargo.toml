@@ -16,6 +16,5 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = "0.20.1"
-anchor-spl = "0.20.1"
-switchboard-program = "0.2.0"
+anchor-lang = { version = "0.22.0", features = ["init-if-needed"] }
+anchor-spl = "0.22.0"

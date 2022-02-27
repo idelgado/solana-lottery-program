@@ -12,13 +12,9 @@ pub mod no_loss_lottery {
     use super::*;
     pub fn initialize(
         ctx: Context<Initialize>,
-        _vault_bump: u8,
-        _vault_mgr_bump: u8,
-        _tickets_bump: u8,
-        _prize_bump: u8,
         draw_duration: u64,
         ticket_price: u64,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         // set vault manager config
         let vault_mgr = &mut ctx.accounts.vault_manager;
         vault_mgr.draw_duration = draw_duration;
@@ -31,14 +27,7 @@ pub mod no_loss_lottery {
         Ok(())
     }
 
-    pub fn buy(
-        ctx: Context<Buy>,
-        _vault_bump: u8,
-        vault_mgr_bump: u8,
-        _tickets_bump: u8,
-        _ticket_bump: u8,
-        numbers: [u8; 6],
-    ) -> ProgramResult {
+    pub fn buy(ctx: Context<Buy>, numbers: [u8; 6]) -> Result<()> {
         // if cutoff_time is 0, drawing has never started
         if ctx.accounts.vault_manager.cutoff_time == 0 {
             // get current timestamp from Clock program
@@ -51,12 +40,12 @@ pub mod no_loss_lottery {
 
         // do not allow user to pass in zeroed array of numbers
         if numbers == [0u8; 6] {
-            return Err(ErrorCode::InvalidNumbers.into());
+            return Err(error!(ErrorCode::InvalidNumbers));
         }
 
         // if buy is locked, call find
         if ctx.accounts.vault_manager.locked {
-            return Err(ErrorCode::CallDispense.into());
+            return Err(error!(ErrorCode::CallDispense));
         }
 
         // create ticket PDA data
@@ -97,7 +86,7 @@ pub mod no_loss_lottery {
                 &[&[
                     ctx.accounts.mint.clone().key().as_ref(),
                     ctx.accounts.vault.clone().key().as_ref(),
-                    &[vault_mgr_bump],
+                    &[*ctx.bumps.get("vault_manager").unwrap()],
                 ]],
             ),
             1,
@@ -105,14 +94,7 @@ pub mod no_loss_lottery {
     }
 
     // redeem tickets for deposited tokens
-    pub fn redeem(
-        ctx: Context<Redeem>,
-        _vault_bump: u8,
-        vault_mgr_bump: u8,
-        _tickets_bump: u8,
-        _ticket_bump: u8,
-        _prize_bump: u8,
-    ) -> ProgramResult {
+    pub fn redeem(ctx: Context<Redeem>) -> Result<()> {
         // burn a ticket from the user ATA
         let burn_accounts = token::Burn {
             mint: ctx.accounts.tickets.clone().to_account_info(),
@@ -149,19 +131,14 @@ pub mod no_loss_lottery {
                 &[&[
                     ctx.accounts.mint.key().as_ref(),
                     ctx.accounts.vault.key().as_ref(),
-                    &[vault_mgr_bump],
+                    &[*ctx.bumps.get("vault_manager").unwrap()],
                 ]],
             ),
             ctx.accounts.vault_manager.ticket_price,
         )
     }
 
-    pub fn draw(
-        ctx: Context<Draw>,
-        _vault_bump: u8,
-        _vault_mgr_bump: u8,
-        _tickets_bump: u8,
-    ) -> ProgramResult {
+    pub fn draw(ctx: Context<Draw>) -> Result<()> {
         let cutoff_time = ctx.accounts.vault_manager.cutoff_time;
 
         // if no tickets have been purchased, do not draw
@@ -196,14 +173,7 @@ pub mod no_loss_lottery {
     // force passing in the winning numbers PDA
     // if PDA exists, send prize
     // if not error
-    pub fn dispense(
-        ctx: Context<Dispense>,
-        _vault_bump: u8,
-        vault_mgr_bump: u8,
-        _tickets_bump: u8,
-        numbers: [u8; 6],
-        _ticket_bump: u8,
-    ) -> ProgramResult {
+    pub fn dispense(ctx: Context<Dispense>, numbers: [u8; 6]) -> Result<()> {
         // crank must pass in winning PDA
         if numbers != ctx.accounts.vault_manager.winning_numbers {
             return Err(ErrorCode::PassInWinningPDA.into());
@@ -246,7 +216,7 @@ pub mod no_loss_lottery {
                 &[&[
                     ctx.accounts.mint.key().as_ref(),
                     ctx.accounts.vault.key().as_ref(),
-                    &[vault_mgr_bump],
+                    &[*ctx.bumps.get("vault_manager").unwrap()],
                 ]],
             ),
             ctx.accounts.prize.amount,
@@ -255,7 +225,6 @@ pub mod no_loss_lottery {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, prize_bump: u8)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
@@ -265,19 +234,19 @@ pub struct Initialize<'info> {
         token::mint = mint,
         token::authority = vault_manager,
         seeds = [mint.key().as_ref()],
-        bump = vault_bump, has_one = mint)]
+        bump, has_one = mint)]
     pub vault: Account<'info, token::TokenAccount>,
 
     #[account(init,
         payer = user,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
-        bump = vault_mgr_bump)]
+        bump)]
     pub vault_manager: Account<'info, VaultManager>,
 
     #[account(init,
         payer = user,
         seeds = [mint.key().as_ref(), vault.key().as_ref(), vault_manager.key().as_ref()],
-        bump = tickets_bump,
+        bump,
         mint::authority = vault_manager,
         mint::decimals = 0,
     )]
@@ -286,7 +255,7 @@ pub struct Initialize<'info> {
     #[account(init,
         payer = user,
         seeds = [mint.key().as_ref(), vault.key().as_ref(), vault_manager.key().as_ref(), tickets.key().as_ref()],
-        bump = prize_bump,
+        bump,
         token::mint = mint,
         token::authority = vault_manager
     )]
@@ -301,14 +270,14 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, vault_tickets_bump: u8, ticket_bump: u8, numbers: [u8; 6])]
+#[instruction(numbers: [u8; 6])]
 pub struct Buy<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
     #[account(mut,
         seeds = [mint.key().as_ref()],
-        bump = vault_bump, has_one = mint)]
+        bump, has_one = mint)]
     pub vault: Account<'info, token::TokenAccount>,
 
     #[account(mut,
@@ -316,7 +285,7 @@ pub struct Buy<'info> {
         has_one = mint,
         has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
-        bump = vault_mgr_bump)]
+        bump)]
     pub vault_manager: Box<Account<'info, VaultManager>>,
 
     #[account(mut)]
@@ -325,7 +294,7 @@ pub struct Buy<'info> {
     #[account(init,
         payer = user,
         seeds = [&numbers, vault_manager.key().as_ref()],
-        bump = ticket_bump,
+        bump,
     )]
     pub ticket: Box<Account<'info, Ticket>>,
 
@@ -348,14 +317,13 @@ pub struct Buy<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, ticket_bump: u8, prize_bump: u8)]
 pub struct Redeem<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
     #[account(mut,
         seeds = [mint.key().as_ref()],
-        bump = vault_bump, has_one = mint)]
+        bump, has_one = mint)]
     pub vault: Account<'info, token::TokenAccount>,
 
     #[account(mut,
@@ -363,7 +331,7 @@ pub struct Redeem<'info> {
         has_one = mint,
         has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
-        bump = vault_mgr_bump)]
+        bump)]
     pub vault_manager: Account<'info, VaultManager>,
 
     #[account(mut)]
@@ -392,14 +360,13 @@ pub struct Redeem<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8)]
 pub struct Draw<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
     #[account(mut,
         seeds = [mint.key().as_ref()],
-        bump = vault_bump, has_one = mint)]
+        bump, has_one = mint)]
     pub vault: Account<'info, token::TokenAccount>,
 
     #[account(mut,
@@ -407,7 +374,7 @@ pub struct Draw<'info> {
         has_one = mint,
         has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
-        bump = vault_mgr_bump)]
+        bump)]
     pub vault_manager: Account<'info, VaultManager>,
 
     #[account(mut)]
@@ -422,14 +389,14 @@ pub struct Draw<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_bump: u8, vault_mgr_bump: u8, tickets_bump: u8, numbers: [u8; 6], ticket_bump: u8)]
+#[instruction(numbers: [u8; 6])]
 pub struct Dispense<'info> {
     #[account(mut)]
     pub mint: Account<'info, token::Mint>,
 
     #[account(mut,
         seeds = [mint.key().as_ref()],
-        bump = vault_bump, has_one = mint)]
+        bump, has_one = mint)]
     pub vault: Account<'info, token::TokenAccount>,
 
     #[account(mut,
@@ -437,13 +404,13 @@ pub struct Dispense<'info> {
         has_one = mint,
         has_one = tickets,
         seeds = [mint.key().as_ref(), vault.key().as_ref()],
-        bump = vault_mgr_bump)]
+        bump)]
     pub vault_manager: Account<'info, VaultManager>,
 
     #[account(mut)]
     pub tickets: Account<'info, token::Mint>,
 
-    #[account(init_if_needed, payer = user, seeds = [&numbers, vault_manager.key().as_ref()], bump = ticket_bump)]
+    #[account(init_if_needed, payer = user, seeds = [&numbers, vault_manager.key().as_ref()], bump)]
     pub ticket: Box<Account<'info, Ticket>>,
 
     #[account(mut, has_one = mint)]
@@ -482,7 +449,7 @@ pub struct Ticket {
     pub numbers: [u8; 6],
 }
 
-#[error]
+#[error_code]
 pub enum ErrorCode {
     #[msg("TimeRemaining")]
     TimeRemaining,
