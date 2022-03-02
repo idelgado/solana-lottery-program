@@ -19,6 +19,100 @@ interface Config {
   keys: Map<String, anchor.web3.PublicKey>;
 }
 
+describe("Initialize", () => {
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.Provider.env());
+
+  const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
+
+  it("Initalize", async () => {
+    const drawDurationSeconds = 1;
+
+    let config = await initialize(program, drawDurationSeconds);
+
+    console.log(config.keys);
+
+    let mint = config.keys.get(MINT);
+
+    console.log('mint: %s', mint.toString());
+
+    const derivedConfig = await deriveConfig(program, mint);
+
+    // Remove mint authority since it is not needed by the end user
+    config.keys.delete(MINT_AUTHORITY)
+
+    assert.ok(compareHashMap(config.keys, derivedConfig.keys));
+
+  });
+});
+
+async function deriveConfig(
+  program: anchor.Program<NoLossLottery>,
+  mint: anchor.web3.PublicKey): Promise<Config> {
+
+  const [vault, vaultBump] = await anchor.web3.PublicKey.findProgramAddress(
+    [mint.toBuffer()],
+    program.programId
+  );
+
+  const [vaultMgr, vaultMgrBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [mint.toBuffer(), vault.toBuffer()],
+      program.programId
+    );
+
+  const [tickets, ticketsBump] = await anchor.web3.PublicKey.findProgramAddress(
+    [mint.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
+    program.programId
+  );
+
+  const [prize, prizeBump] = await anchor.web3.PublicKey.findProgramAddress(
+    [
+      mint.toBuffer(),
+      vault.toBuffer(),
+      vaultMgr.toBuffer(),
+      tickets.toBuffer(),
+    ],
+    program.programId
+  );
+
+  const userDepositAta = await spl.getAssociatedTokenAddress(
+    mint,
+    program.provider.wallet.publicKey
+  );
+
+  const userTicketsAta = await spl.getAssociatedTokenAddress(
+    tickets,
+    program.provider.wallet.publicKey,
+  );
+
+  let keys = new Map<String, anchor.web3.PublicKey>();
+  keys.set(VAULT, vault);
+  keys.set(VAULT_MANAGER, vaultMgr);
+  keys.set(MINT, mint);
+  keys.set(TICKETS, tickets);
+  keys.set(PRIZE, prize);
+  keys.set(USER_TICKET_ATA, userTicketsAta);
+  // keys.set(MINT_AUTHORITY, mintAuthority.publicKey);
+  keys.set(USER_DEPOSIT_ATA, userDepositAta);
+
+  return {
+    keys: keys,
+  };
+}
+
+const compareHashMap = (obj1, obj2) => {
+  const keys1 = Object.keys(obj1), keys2 = Object.keys(obj2);
+  let match = true;
+  if(keys1.length !== keys2.length) return false;
+  for(const key of keys1) { 
+      if(obj1[key] !== obj2[key]) {
+          match = false; 
+            break; 
+      }
+  }
+  return match;
+}
+
 describe("Buy", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
