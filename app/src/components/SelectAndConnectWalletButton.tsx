@@ -1,6 +1,7 @@
 import { FC, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+const { program, loadProgram } = useProgram();
 
 type Props = {
   onUseWalletClick: () => void;

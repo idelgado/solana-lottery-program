@@ -20,6 +20,89 @@ interface Config {
   bumps: Map<String, number>;
 }
 
+describe("Initialize", () => {
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.Provider.env());
+
+  const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
+
+  it("Initalize", async () => {
+    const drawDurationSeconds = 1;
+
+    let config = await initialize(program, drawDurationSeconds);
+
+    console.log(config.keys);
+    console.log(config.bumps);
+
+    let mint = config.keys.get(MINT);
+
+    console.log('mint: %s', mint.toString());
+
+    const derivedConfig = await deriveConfig(program.provider.wallet.publicKey, program.programId, mint);
+
+    // Remove mint authority
+    config.keys.delete(MINT_AUTHORITY)
+
+    assert.equal(config, derivedConfig);
+  });
+});
+
+async function deriveConfig(wallet: anchor.web3.PublicKey, programId: anchor.web3.PublicKey, mint: anchor.web3.PublicKey): Promise<Config> {
+
+  const [vault, vaultBump] = await anchor.web3.PublicKey.findProgramAddress(
+    [mint.toBuffer()],
+    programId
+  );
+
+  const [vaultMgr, vaultMgrBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [mint.toBuffer(), vault.toBuffer()],
+      programId
+    );
+
+  const [tickets, ticketsBump] = await anchor.web3.PublicKey.findProgramAddress(
+    [mint.toBuffer(), vault.toBuffer(), vaultMgr.toBuffer()],
+    programId
+  );
+
+  const [prize, prizeBump] = await anchor.web3.PublicKey.findProgramAddress(
+    [
+      mint.toBuffer(),
+      vault.toBuffer(),
+      vaultMgr.toBuffer(),
+      tickets.toBuffer(),
+    ],
+    programId
+  );
+
+  const userTicketsAta = await spl.Token.getAssociatedTokenAddress(
+    spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+    spl.TOKEN_PROGRAM_ID,
+    tickets,
+    wallet 
+  );
+
+  let keys = new Map<String, anchor.web3.PublicKey>();
+  keys.set(VAULT, vault);
+  keys.set(VAULT_MANAGER, vaultMgr);
+  keys.set(MINT, mint);
+  keys.set(TICKETS, tickets);
+  keys.set(PRIZE, prize);
+  keys.set(USER_TICKET_ATA, userTicketsAta);
+  // keys.set(MINT_AUTHORITY, mintAuthority.publicKey);
+  // keys.set(USER_DEPOSIT_ATA, userDepositAta.address);
+
+  let bumps = new Map<String, number>();
+  bumps.set(VAULT, vaultBump);
+  bumps.set(VAULT_MANAGER, vaultMgrBump);
+  bumps.set(TICKETS, ticketsBump);
+
+  return {
+    keys: keys,
+    bumps: bumps,
+  };
+}
+
 describe("Buy", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());

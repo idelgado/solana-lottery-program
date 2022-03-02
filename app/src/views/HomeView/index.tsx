@@ -1,15 +1,50 @@
 import Link from "next/link";
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import useProgram from "components/program";
+import { Program } from "@project-serum/anchor";
+import * as anchor from "@project-serum/anchor";
+import * as spl from "@solana/spl-token";
+import { NoLossLottery } from "../../../../target/types/no_loss_lottery"
 
-import { SolanaLogo } from "components";
 import styles from "./index.module.css";
+import { useEffect } from "react";
+
+const VAULT = "VAULT";
+const VAULT_MANAGER = "VAULT_MANAGER";
+const MINT = "MINT";
+const TICKETS = "TICKETS";
+const USER_DEPOSIT_ATA = "USER_DEPOSIT_ATA";
+const USER_TICKET_ATA = "USER_TICKET_ATA";
+
+export const buyOneTicket = async (
+
+  ): Promise<string> => {
+    return "";
+};
+
+interface Config {
+  keys: Map<String, anchor.web3.PublicKey>;
+  bumps: Map<String, number>;
+}
+
+async function buy(
+  program: Program<NoLossLottery>,
+  numbers: Array<number>,
+  config: Config,
+): Promise<[anchor.web3.PublicKey, number]> {
+  return [new anchor.web3.PublicKey(0),0] 
+}
 
 export const HomeView: FC = ({}) => {
   const { publicKey } = useWallet();
+  const { program, loadProgram } = useProgram();
 
-  const onClick = () => {};
+  const buyTicket = async () => {
+    console.log("buy");
+    buy();
+  };
 
   return (
     <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
@@ -39,12 +74,15 @@ export const HomeView: FC = ({}) => {
                   Solana wallet adapter is connected and ready to use.
                 </p>
                 <p>
-                  {publicKey ? <>Your address: {publicKey.toBase58()}</> : null}
+                  {publicKey ? <>Your account address: {publicKey.toBase58()}</> : null}
                 </p>
               </div>
             </div>
           </div>
 
+          <button className="btn btn-primary normal-case btn-xs" onClick={buyTicket} >
+            Buy Ticket
+          </button>
         </div>
       </div>
     </div>
