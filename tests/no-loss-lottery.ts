@@ -33,8 +33,20 @@ describe("Initialize", () => {
     console.log(config.keys);
 
     let mint = config.keys.get(MINT);
-
+    let vault = config.keys.get(VAULT);
+    let vaultManager = config.keys.get(VAULT_MANAGER);
+    let tickets = config.keys.get(TICKETS);
+    let prize = config.keys.get(PRIZE);
+    let userTicketsAta = config.keys.get(USER_TICKET_ATA);
+    let userDepositAta = config.keys.get(USER_DEPOSIT_ATA);
+ 
     console.log('mint: %s', mint.toString());
+    console.log('vault: %s', vault.toString());
+    console.log('vaultManager: %s', vaultManager.toString());
+    console.log('tickets: %s', tickets.toString());
+    console.log('prize: %s', prize.toString());
+    console.log('userTicketsAta: %s', userTicketsAta.toString());
+    console.log('userDepositAta: %s', userDepositAta.toString());
 
     const derivedConfig = await deriveConfig(program, mint);
 
