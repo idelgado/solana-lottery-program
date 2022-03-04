@@ -3,7 +3,6 @@
 ## Run app using:
 
 ```
-yarn
 yarn run dev
 ```
 

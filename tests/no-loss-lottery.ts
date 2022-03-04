@@ -17,6 +17,7 @@ const PRIZE_AMOUNT = 100;
 
 interface Config {
   keys: Map<String, anchor.web3.PublicKey>;
+  mintAuthority: anchor.web3.Account;
 }
 
 describe("Initialize", () => {
@@ -39,6 +40,7 @@ describe("Initialize", () => {
     let prize = config.keys.get(PRIZE);
     let userTicketsAta = config.keys.get(USER_TICKET_ATA);
     let userDepositAta = config.keys.get(USER_DEPOSIT_ATA);
+    let mintAuthority = config.keys.get(MINT_AUTHORITY);
  
     console.log('mint: %s', mint.toString());
     console.log('vault: %s', vault.toString());
@@ -50,10 +52,59 @@ describe("Initialize", () => {
 
     const derivedConfig = await deriveConfig(program, mint);
 
+    mint = derivedConfig.keys.get(MINT);
+    vault = derivedConfig.keys.get(VAULT);
+    vaultManager = derivedConfig.keys.get(VAULT_MANAGER);
+    prize = derivedConfig.keys.get(PRIZE);
+    tickets = derivedConfig.keys.get(TICKETS);
+    userTicketsAta = derivedConfig.keys.get(USER_TICKET_ATA);
+    userDepositAta = derivedConfig.keys.get(USER_DEPOSIT_ATA);
+    mintAuthority = derivedConfig.keys.get(MINT_AUTHORITY);
+
+    console.log('mint: %s', mint.toString());
+    console.log('vault: %s', vault.toString());
+    console.log('vaultManager: %s', vaultManager.toString());
+    console.log('tickets: %s', tickets.toString());
+    console.log('prize: %s', prize.toString());
+    console.log('userTicketsAta: %s', userTicketsAta.toString());
+    console.log('userDepositAta: %s', userDepositAta.toString());
+
+
     // Remove mint authority since it is not needed by the end user
     config.keys.delete(MINT_AUTHORITY)
 
     assert.ok(compareHashMap(config.keys, derivedConfig.keys));
+
+    const numbers = [4, 4, 4, 4, 4, 4];
+
+    const [ticket, ticketBump] = await buy(
+      program,
+      numbers,
+      derivedConfig,
+      program.idl.errors[2].code
+    );
+  
+    // Setup userDepositAta
+    let phantomWallet = new anchor.web3.PublicKey("DjrvieNYTxTbFBguZnkqpjkxFdrKuwgLrDeqqWc3Km7x");
+    // get user ata
+    let a = await spl.getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      config.mintAuthority,
+      mint,
+      phantomWallet 
+    );
+
+    // mint tokens to user_ata
+    await spl.mintTo(
+      program.provider.connection,
+      config.mintAuthority,
+      mint,
+      a.address,
+      config.mintAuthority.publicKey,
+      100
+    );
+    console.log("minted %d tokens to user_ata");
+
 
   });
 });
@@ -754,6 +805,7 @@ async function initialize(
 
   const config: Config = {
     keys: keys,
+    mintAuthority: mintAuthority
   };
 
   return config;

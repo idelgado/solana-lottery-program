@@ -21,6 +21,7 @@ export default function useProgram(connection: anchor.web3.Connection, wallet: A
     anchor.Provider.defaultOptions(),
   );
   const programId = new anchor.web3.PublicKey(IDL.metadata.address);
+  console.log("programId: %s", programId.toString());
   return new anchor.Program(IDL, programId, provider);
 }
 
@@ -32,7 +33,7 @@ const PRIZE = "PRIZE";
 const USER_DEPOSIT_ATA = "USER_DEPOSIT_ATA";
 const USER_TICKET_ATA = "USER_TICKET_ATA";
 
-const mint = "EDqKV3cw47qvhDV9bvbaVQWZo3szwcpTyhb1WiBH5HN2";
+const mint = "5Rk5GXgcvFoYePsivWGzFsWHpaqn9Y7hsJsGsn9Fp7oa";
 
 async function deriveConfig(
   program: anchor.Program<NoLossLottery>,
@@ -160,7 +161,7 @@ export const HomeView: FC = ({}) => {
       const mintPK = new anchor.web3.PublicKey(mint); 
       const config = await deriveConfig(program, mintPK);
 
-      const numbers = [7, 8, 9, 10, 11, 12];
+      const numbers = [4, 8, 9, 10, 11, 12];
       const [ticket, ticketBump] = await buy(program, numbers, config);
       const userKey = await program.account.ticket.fetch(ticket);
     assertPublicKey(
