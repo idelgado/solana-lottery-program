@@ -5,10 +5,13 @@ import { AnchorWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import * as anchor from '@project-serum/anchor';
-import { NoLossLottery } from "../../../../target/types/no_loss_lottery"
-import * as assert from "assert";
+import { NoLossLottery } from "../../../../target/types/no_loss_lottery";
 import styles from "./index.module.css";
-import { publicKey } from "@project-serum/anchor/dist/cjs/utils";
+import {
+  MemcmpFilter,
+  GetProgramAccountsConfig,
+  DataSizeFilter,
+} from "@solana/web3.js";
 
 export type Maybe<T> = T | null;
 
@@ -33,7 +36,7 @@ const PRIZE = "PRIZE";
 const USER_DEPOSIT_ATA = "USER_DEPOSIT_ATA";
 const USER_TICKET_ATA = "USER_TICKET_ATA";
 
-const mint = "5Rk5GXgcvFoYePsivWGzFsWHpaqn9Y7hsJsGsn9Fp7oa";
+const mint = "7Bwd6FV3SwewtgjkQuw6BrSRWBg4Sm1oq33JuwmxkyvD";
 
 async function deriveConfig(
   program: anchor.Program<NoLossLottery>,
@@ -161,14 +164,35 @@ export const HomeView: FC = ({}) => {
       const mintPK = new anchor.web3.PublicKey(mint); 
       const config = await deriveConfig(program, mintPK);
 
-      const numbers = [4, 8, 9, 10, 11, 12];
+      const numbers = [4, 5, 6, 10, 11, 12];
       const [ticket, ticketBump] = await buy(program, numbers, config);
-      const userKey = await program.account.ticket.fetch(ticket);
-    assertPublicKey(
-      assert.equal,
-      program.provider.wallet.publicKey,
-      userKey.owner
-    );
+    }
+  };
+
+  const viewTickets = async () => {
+    if (connection && wallet) {
+      const program = useProgram(connection, wallet);
+      console.log("program: %s", program.programId.toString())
+
+      const walletMemcmp: MemcmpFilter = {
+        memcmp: {
+          offset: 104,
+          bytes: wallet.publicKey.toBase58(),
+        }
+      };
+      const sizeFilter: DataSizeFilter = {
+        dataSize: 142,
+      }
+      const filters = [walletMemcmp, sizeFilter];
+      const config: GetProgramAccountsConfig = { filters: filters };
+      const accounts = await connection.getProgramAccounts(program.programId, config);
+      console.log(accounts.entries().next());
+
+      for (let account of accounts) {
+        console.log(account.pubkey.toString());
+        const ticket = await program.account.ticket.fetch(account.pubkey);
+        console.log("ticket: %v", ticket.numbers);
+      }
     }
   };
 
@@ -207,6 +231,9 @@ export const HomeView: FC = ({}) => {
           </div>
         <button className="btn btn-primary normal-case btn-xs" onClick={buyTicket} >
           Buy Ticket
+        </button>
+        <button className="btn btn-primary normal-case btn-xs" onClick={viewTickets} >
+          View Tickets
         </button>
 
        </div>
