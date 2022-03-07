@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import * as spl from "@solana/spl-token";
 import { Program } from "@project-serum/anchor";
 import { AnchorWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
@@ -37,6 +37,8 @@ const USER_DEPOSIT_ATA = "USER_DEPOSIT_ATA";
 const USER_TICKET_ATA = "USER_TICKET_ATA";
 
 const mint = "7Bwd6FV3SwewtgjkQuw6BrSRWBg4Sm1oq33JuwmxkyvD";
+
+let tks: Array<TicketData> = new Array();
 
 async function deriveConfig(
   program: anchor.Program<NoLossLottery>,
@@ -101,6 +103,16 @@ async function deriveConfig(
   };
 }
 
+class TicketData {
+  pk: anchor.web3.PublicKey;
+  numbers: Array<number>;
+
+  constructor(pk: anchor.web3.PublicKey, numbers: Array<number>) {
+    this.pk = pk;
+    this.numbers = numbers;
+  }
+}
+
 interface Config {
   keys: Map<String, anchor.web3.PublicKey>;
 }
@@ -143,17 +155,10 @@ async function buy(
   return [ticket, ticketBump];
 }
 
-function assertPublicKey(
-  f: Function,
-  key1: anchor.web3.PublicKey,
-  key2: anchor.web3.PublicKey
-) {
-  return f(key1.toString(), key2.toString());
-}
-
 export const HomeView: FC = ({}) => {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
+  const [t, setTickets] = useState<TicketData[]>([]);
 
   const buyTicket = async () => {
     if (connection && wallet) {
@@ -174,12 +179,14 @@ export const HomeView: FC = ({}) => {
       const program = useProgram(connection, wallet);
       console.log("program: %s", program.programId.toString())
 
+      // Get accounts associated with the connected wallet
       const walletMemcmp: MemcmpFilter = {
         memcmp: {
           offset: 104,
           bytes: wallet.publicKey.toBase58(),
         }
       };
+      // Get ticket PDAs by matching with the account size
       const sizeFilter: DataSizeFilter = {
         dataSize: 142,
       }
@@ -192,7 +199,11 @@ export const HomeView: FC = ({}) => {
         console.log(account.pubkey.toString());
         const ticket = await program.account.ticket.fetch(account.pubkey);
         console.log("ticket: %v", ticket.numbers);
+        const tk = new TicketData(account.pubkey, ticket.numbers);
+        tks.push(tk);
       }
+
+      setTickets(tks);
     }
   };
 
@@ -235,6 +246,24 @@ export const HomeView: FC = ({}) => {
         <button className="btn btn-primary normal-case btn-xs" onClick={viewTickets} >
           View Tickets
         </button>
+
+        <div className="tks">
+        {tks &&
+          tks.map((book, index) => {
+            const numbers = book.numbers.toString();
+            const address = book.pk.toString();
+
+            return (
+              <div className="ticket" key={index}>
+                <h3>Ticket {index + 1}</h3>
+                <div className="details">
+                  <p>{numbers}</p>
+                  <p>{address}</p>
+                </div>
+              </div>
+            );
+          })}
+      </div>
 
        </div>
       </div>
