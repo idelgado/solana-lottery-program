@@ -1,9 +1,9 @@
-import { FC, useState, useEffect } from "react";
+import { FC } from "react";
 
 type Props = {
   address: string;  
   numbers: Array<number>;
-  onSelect: (id: string) => void;
+  onSelect: (address: string) => void;
 };
 
 export const TicketCard: FC<Props> = ({
@@ -15,7 +15,7 @@ export const TicketCard: FC<Props> = ({
   const drawing = numbers.join(' ');
 
   return (
-    <div className={`card bordered max-w-xs compact rounded-md`}>
+    <div className={`card bordered max-w-xs compact rounded-md`} onClick={() => onSelect(address)}>
       <figure className="min-h-16 animation-pulse-color">
           <div className="w-auto h-24 flex items-center justify-center bg-gray-900 bg-opacity-40">
             <span className="text-8xl">🎟️</span>

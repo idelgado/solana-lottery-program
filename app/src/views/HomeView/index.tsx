@@ -9,6 +9,7 @@ import { NoLossLottery } from "../../../../target/types/no_loss_lottery";
 import { TicketCard } from "./ticketcard";
 import styles from "./index.module.css";
 import {
+  ConfirmOptions,
   MemcmpFilter,
   GetProgramAccountsConfig,
   DataSizeFilter,
@@ -19,10 +20,15 @@ export type Maybe<T> = T | null;
 const IDL = require("../../../../target/idl/no_loss_lottery.json");
 
 export default function useProgram(connection: anchor.web3.Connection, wallet: AnchorWallet): Program<NoLossLottery> {
+  // Use confirmed to ensure that blockchain state is valid
+  const opts: ConfirmOptions = {
+    preflightCommitment: "confirmed",
+    commitment: "confirmed",
+  };
   const provider = new anchor.Provider(
     connection,
     wallet,
-    anchor.Provider.defaultOptions(),
+    opts
   );
   const programId = new anchor.web3.PublicKey(IDL.metadata.address);
   console.log("programId: %s", programId.toString());
@@ -156,6 +162,35 @@ async function buy(
   return [ticket, ticketBump];
 }
 
+async function redeem(
+  program: Program<NoLossLottery>,
+  config: Config,
+  ticket: anchor.web3.PublicKey,
+) {
+  try {
+    // user redeem token
+    const redeemTxSig = await program.rpc.redeem({
+      accounts: {
+        mint: config.keys.get(MINT)!,
+        vault: config.keys.get(VAULT)!,
+        tickets: config.keys.get(TICKETS)!,
+        vaultManager: config.keys.get(VAULT_MANAGER)!,
+        ticket: ticket,
+        prize: config.keys.get(PRIZE)!,
+        userTicketsAta: config.keys.get(USER_TICKET_ATA)!,
+        user: program.provider.wallet.publicKey,
+        userDepositAta: config.keys.get(USER_DEPOSIT_ATA)!,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+    });
+    console.log("redeemTxSig:", redeemTxSig);
+  } catch (e) {
+    console.log(e);
+  }
+}
+
 export const HomeView: FC = ({}) => {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
@@ -170,8 +205,10 @@ export const HomeView: FC = ({}) => {
       const mintPK = new anchor.web3.PublicKey(mint); 
       const config = await deriveConfig(program, mintPK);
 
-      const numbers = [4, 5, 6, 10, 11, 12];
+      const numbers = [2, 3, 6, 10, 11, 12];
       const [ticket, ticketBump] = await buy(program, numbers, config);
+
+      viewTickets();
     }
   };
 
@@ -194,7 +231,9 @@ export const HomeView: FC = ({}) => {
       const filters = [walletMemcmp, sizeFilter];
       const config: GetProgramAccountsConfig = { filters: filters };
       const accounts = await connection.getProgramAccounts(program.programId, config);
-      console.log(accounts.entries().next());
+      console.log("accounts %d", accounts.length);
+
+      tks = [];
 
       for (let account of accounts) {
         console.log(account.pubkey.toString());
@@ -208,12 +247,17 @@ export const HomeView: FC = ({}) => {
     }
   };
 
-  const redeemTicket = async () => {
+  const redeemTicket = async (address: string) => {
     if (connection && wallet) {
       const program = useProgram(connection, wallet);
-      console.log("program: %s", program.programId.toString())
-      console.log("redeem");
+      console.log("redeem %s", address);
 
+      const mintPK = new anchor.web3.PublicKey(mint); 
+      const ticketPK = new anchor.web3.PublicKey(address); 
+      const config = await deriveConfig(program, mintPK);
+      await redeem(program, config, ticketPK);
+
+      viewTickets();
     }
   };
 
@@ -235,34 +279,26 @@ export const HomeView: FC = ({}) => {
         </div>
 
         <div className="text-center pt-2">
-          <div className="hero min-h-16 py-4">
-            <div className="text-center hero-content">
-              <div className="max-w-lg">
-                <h1 className="mb-5 text-5xl font-bold">
-                  No Loss Lottery
-                </h1>
-                <p className="mb-5">
-                  Solana wallet adapter is connected and ready.
-                </p>
-                <p>
-                  {wallet ? <>Your address: {wallet.publicKey.toBase58()}</> : null}
-                </p>
-              </div>
-            </div>
-          </div>
-
+          {wallet ?
+          <>
           <button className="btn btn-primary normal-case btn-xs" onClick={buyTicket} >
             Buy Ticket
           </button>
           <button className="btn btn-primary normal-case btn-xs" onClick={viewTickets} >
             View Tickets
           </button>
-
+          </> 
+          : null}
           <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
             <div className="tks">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-start">
                 {tks?.map((tk) => (
-                  <TicketCard key={tk.pk.toString()} address={tk.pk.toString()} numbers={tk.numbers} onSelect={() => { }} />
+                  <TicketCard
+                    key={tk.pk.toString()}
+                    address={tk.pk.toString()}
+                    numbers={tk.numbers}
+                    onSelect={(address: string) => { redeemTicket(address) }}
+                    />
                 ))}
               </div>
             </div>
