@@ -206,7 +206,7 @@ export const HomeView: FC = ({}) => {
       const config = await deriveConfig(program, mintPK);
 
       const numbers = [2, 3, 6, 10, 11, 12];
-      const [ticket, ticketBump] = await buy(program, numbers, config);
+      await buy(program, numbers, config);
 
       viewTickets();
     }
@@ -233,19 +233,26 @@ export const HomeView: FC = ({}) => {
       const accounts = await connection.getProgramAccounts(program.programId, config);
       console.log("accounts %d", accounts.length);
 
-      tks = [];
+      let newTks = [];
 
       for (let account of accounts) {
         console.log(account.pubkey.toString());
         const ticket = await program.account.ticket.fetch(account.pubkey);
         console.log("ticket: %v", ticket.numbers);
         const tk = new TicketData(account.pubkey, ticket.numbers);
-        tks.push(tk);
+        newTks.push(tk);
       }
 
-      setTickets(tks);
+      if (!arraysEqual(newTks, t)) {
+        setTickets(newTks);
+      }
     }
   };
+
+  function arraysEqual(a1: Array<TicketData>, a2: Array<TicketData>) {
+    /* WARNING: arrays must not contain {objects} or behavior may be undefined */
+    return JSON.stringify(a1)==JSON.stringify(a2);
+  }
 
   const redeemTicket = async (address: string) => {
     if (connection && wallet) {
@@ -260,6 +267,8 @@ export const HomeView: FC = ({}) => {
       viewTickets();
     }
   };
+
+  viewTickets();
 
   return (
     <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
@@ -277,7 +286,6 @@ export const HomeView: FC = ({}) => {
             <WalletMultiButton className="btn btn-ghost" />
           </div>
         </div>
-
         <div className="text-center pt-2">
           {wallet ?
           <>
@@ -292,11 +300,11 @@ export const HomeView: FC = ({}) => {
           <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
             <div className="tks">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-start">
-                {tks?.map((tk) => (
+                {t?.map((t) => (
                   <TicketCard
-                    key={tk.pk.toString()}
-                    address={tk.pk.toString()}
-                    numbers={tk.numbers}
+                    key={t.pk.toString()}
+                    address={t.pk.toString()}
+                    numbers={t.numbers}
                     onSelect={(address: string) => { redeemTicket(address) }}
                     />
                 ))}
