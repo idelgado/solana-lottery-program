@@ -6,6 +6,7 @@ import { useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import * as anchor from '@project-serum/anchor';
 import { NoLossLottery } from "../../../../target/types/no_loss_lottery";
+import { TicketCard } from "./ticketcard";
 import styles from "./index.module.css";
 import {
   MemcmpFilter,
@@ -207,6 +208,15 @@ export const HomeView: FC = ({}) => {
     }
   };
 
+  const redeemTicket = async () => {
+    if (connection && wallet) {
+      const program = useProgram(connection, wallet);
+      console.log("program: %s", program.programId.toString())
+      console.log("redeem");
+
+    }
+  };
+
   return (
     <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
       <div className={styles.container}>
@@ -240,31 +250,23 @@ export const HomeView: FC = ({}) => {
               </div>
             </div>
           </div>
-        <button className="btn btn-primary normal-case btn-xs" onClick={buyTicket} >
-          Buy Ticket
-        </button>
-        <button className="btn btn-primary normal-case btn-xs" onClick={viewTickets} >
-          View Tickets
-        </button>
 
-        <div className="tks">
-        {tks &&
-          tks.map((book, index) => {
-            const numbers = book.numbers.toString();
-            const address = book.pk.toString();
+          <button className="btn btn-primary normal-case btn-xs" onClick={buyTicket} >
+            Buy Ticket
+          </button>
+          <button className="btn btn-primary normal-case btn-xs" onClick={viewTickets} >
+            View Tickets
+          </button>
 
-            return (
-              <div className="ticket" key={index}>
-                <h3>Ticket {index + 1}</h3>
-                <div className="details">
-                  <p>{numbers}</p>
-                  <p>{address}</p>
-                </div>
+          <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
+            <div className="tks">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-start">
+                {tks?.map((tk) => (
+                  <TicketCard key={tk.pk.toString()} address={tk.pk.toString()} numbers={tk.numbers} onSelect={() => { }} />
+                ))}
               </div>
-            );
-          })}
-      </div>
-
+            </div>
+          </div>
        </div>
       </div>
     </div>
