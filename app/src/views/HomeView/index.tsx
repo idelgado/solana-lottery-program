@@ -45,8 +45,6 @@ const USER_TICKET_ATA = "USER_TICKET_ATA";
 
 const mint = "7Bwd6FV3SwewtgjkQuw6BrSRWBg4Sm1oq33JuwmxkyvD";
 
-let tks: Array<TicketData> = new Array();
-
 async function deriveConfig(
   program: anchor.Program<NoLossLottery>,
   mint: anchor.web3.PublicKey): Promise<Config> {
@@ -222,6 +220,13 @@ export const HomeView: FC = ({}) => {
       ];
       await buy(program, numbers, config);
 
+      oneRef.current!.value = '';
+      twoRef.current!.value = '';
+      threeRef.current!.value = '';
+      fourRef.current!.value = '';
+      fiveRef.current!.value = '';
+      sixRef.current!.value = '';
+
       viewTickets();
     }
   };
@@ -311,7 +316,7 @@ export const HomeView: FC = ({}) => {
                   key={t.pk.toString()}
                   address={t.pk.toString()}
                   numbers={t.numbers}
-                  onSelect={(address: string) => { redeemTicket(address) }}
+                  onSelect={(address: string) => { redeemTicket(address.substring(0, 10)) }}
                 />
               ))}
             </div>
@@ -324,22 +329,22 @@ export const HomeView: FC = ({}) => {
               <div className="w-full flex items-center justify-center">
                 <div className="w-3/4 flex flex-wrap items-center justify-center -mx-3">
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="1" maxLength={1} ref={oneRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="0" maxLength={1} ref={oneRef} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="2" maxLength={1} ref={twoRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="0" maxLength={1} ref={twoRef} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-three" type="text" placeholder="3" maxLength={1} ref={threeRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-three" type="text" placeholder="0" maxLength={1} ref={threeRef} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-four" type="text" placeholder="4" maxLength={1} ref={fourRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-four" type="text" placeholder="0" maxLength={1} ref={fourRef} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-five" type="text" placeholder="5" maxLength={1} ref={fiveRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-five" type="text" placeholder="0" maxLength={1} ref={fiveRef} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-six" type="text" placeholder="6" maxLength={1} ref={sixRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-six" type="text" placeholder="0" maxLength={1} ref={sixRef} />
                   </div>
                 </div>
               </div>

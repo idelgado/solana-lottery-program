@@ -23,6 +23,7 @@ export const TicketCard: FC<Props> = ({
       </figure>
       <div className="card-body">
         <h2 className="card-title text-sm text-center">{drawing}</h2>
+        <h2 className="text-xs text-center">{address.substring(0, 16)}...</h2>
       </div>
     </div>
   );
