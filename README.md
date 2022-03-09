@@ -12,7 +12,6 @@ anchor test
 
 No-loss lottery: Build a platform for users to deposit a variety of tokens into a pool and then connect the pool to a Solana lending protocol which aggregates funds and rewards the interest to a winner over a period of time.
 
-
 ## lottery flow
 
 - users choose 6 numbers, creates PDA numbers and vault pubkey as seed
@@ -29,6 +28,28 @@ No-loss lottery: Build a platform for users to deposit a variety of tokens into 
 - if enough liquidity, transfer `deposit` tokens back to user`
 - if not call `swap_tokens` to get enough liquidity and transfer `deposit` tokens back to user.
 - if `dispense` finds winner, calculate prize amount and call `swap_tokens` to swap all `yield` tokens for `deposit` tokens, calculate prize and send to winner.
+
+## sdk usage
+
+```bash
+# define wallet to use for transactions
+# copy path from 'Keypair Path'
+export ANCHOR_WALLET=$(solana config get | grep 'Keypair Path' | cut -d ' ' -f3)
+
+# initialize writes pubkeys to 'clientaccounts.env'
+# other funcs read from 'clientaccounts.env'
+# required for further commands
+ts-node ./sdk/scripts/initialize.ts
+
+# buy a ticket
+ts-node ./sdk/scripts/buy.ts
+
+# draw winning ticket numbers
+ts-node ./sdk/scripts/draw.ts
+
+# dispense prize to winner
+ts-node ./sdk/scripts/dispense.ts
+```
 
 ### TODO
 
