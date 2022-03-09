@@ -1,4 +1,4 @@
-import { FC, useState, useRef } from "react";
+import { FC, useState, useRef, ChangeEvent } from "react";
 import * as spl from "@solana/spl-token";
 import { Program } from "@project-serum/anchor";
 import { AnchorWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
@@ -287,6 +287,14 @@ export const HomeView: FC = ({}) => {
     }
   };
 
+  const onChange = (e: ChangeEvent) => {
+    const target = e.target as HTMLInputElement;
+    const is_valid = /^\d{1,9}$/.test(target.value);
+    console.log('onChange %d', is_valid);
+    if (!is_valid) {
+      target.value = "";
+    }
+  }
   viewTickets();
 
   return (
@@ -329,7 +337,7 @@ export const HomeView: FC = ({}) => {
               <div className="w-full flex items-center justify-center">
                 <div className="w-3/4 flex flex-wrap items-center justify-center -mx-3">
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="0" maxLength={1} ref={oneRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="0" maxLength={1} ref={oneRef} onChange={e => onChange(e)} />
                   </div>
                   <div className="w-20 px-3">
                     <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="0" maxLength={1} ref={twoRef} />
