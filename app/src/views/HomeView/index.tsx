@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useState, useRef } from "react";
 import * as spl from "@solana/spl-token";
 import { Program } from "@project-serum/anchor";
 import { AnchorWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
@@ -196,6 +196,13 @@ export const HomeView: FC = ({}) => {
   const wallet = useAnchorWallet();
   const [t, setTickets] = useState<TicketData[]>([]);
 
+  const oneRef = useRef<HTMLInputElement>(null);
+  const twoRef = useRef<HTMLInputElement>(null);
+  const threeRef = useRef<HTMLInputElement>(null);
+  const fourRef = useRef<HTMLInputElement>(null);
+  const fiveRef = useRef<HTMLInputElement>(null);
+  const sixRef = useRef<HTMLInputElement>(null);
+
   const buyTicket = async () => {
     if (connection && wallet) {
       const program = useProgram(connection, wallet);
@@ -205,7 +212,14 @@ export const HomeView: FC = ({}) => {
       const mintPK = new anchor.web3.PublicKey(mint); 
       const config = await deriveConfig(program, mintPK);
 
-      const numbers = [2, 3, 6, 10, 11, 12];
+      const numbers = [
+        parseInt(oneRef.current!.value),
+        parseInt(twoRef.current!.value),
+        parseInt(threeRef.current!.value),
+        parseInt(fourRef.current!.value),
+        parseInt(fiveRef.current!.value),
+        parseInt(sixRef.current!.value),
+      ];
       await buy(program, numbers, config);
 
       viewTickets();
@@ -286,12 +300,12 @@ export const HomeView: FC = ({}) => {
             <WalletMultiButton className="btn btn-ghost" />
           </div>
         </div>
-        <div className="container mx-auto max-w-6xl p-4 2xl:px-0">
+        <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
           {t.length > 0 ?
             <h1 className="py-2 px-4 mb-1">Tickets</h1>
             : null}
           <div className="tks">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-start">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 items-start">
               {t?.map((t) => (
                 <TicketCard
                   key={t.pk.toString()}
@@ -304,34 +318,36 @@ export const HomeView: FC = ({}) => {
           </div>
         </div>
         {wallet ?
-          <div className="container mx-auto max-w-6xl p-4 2xl:px-0">
+          <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
             <h1 className="py-2 px-4 mb-1">Buy Ticket</h1>
-            <div className="w-full flex items-center justify-center">
-              <div className="w-3/4 flex flex-wrap items-center justify-center -mx-3">
-                <div className="w-20 px-3">
-                  <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="1" maxLength={1} />
-                </div>
-                <div className="w-20 px-3">
-                  <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="2" maxLength={1} />
-                </div>
-                <div className="w-20 px-3">
-                  <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-three" type="text" placeholder="3" maxLength={1} />
-                </div>
-                <div className="w-20 px-3">
-                  <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-four" type="text" placeholder="4" maxLength={1} />
-                </div>
-                <div className="w-20 px-3">
-                  <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-five" type="text" placeholder="5" maxLength={1} />
-                </div>
-                <div className="w-20 px-3">
-                  <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-six" type="text" placeholder="6" maxLength={1} />
+            <div className="p-4">
+              <div className="w-full flex items-center justify-center">
+                <div className="w-3/4 flex flex-wrap items-center justify-center -mx-3">
+                  <div className="w-20 px-3">
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="1" maxLength={1} ref={oneRef} />
+                  </div>
+                  <div className="w-20 px-3">
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="2" maxLength={1} ref={twoRef} />
+                  </div>
+                  <div className="w-20 px-3">
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-three" type="text" placeholder="3" maxLength={1} ref={threeRef} />
+                  </div>
+                  <div className="w-20 px-3">
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-four" type="text" placeholder="4" maxLength={1} ref={fourRef} />
+                  </div>
+                  <div className="w-20 px-3">
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-five" type="text" placeholder="5" maxLength={1} ref={fiveRef} />
+                  </div>
+                  <div className="w-20 px-3">
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-six" type="text" placeholder="6" maxLength={1} ref={sixRef} />
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="text-center">
-              <button className="btn btn-primary normal-case btn-sm" onClick={buyTicket} >
-                Buy
-              </button>
+              <div className="text-center">
+                <button className="btn btn-primary normal-case btn-sm" onClick={buyTicket}>
+                  Buy
+                </button>
+              </div>
             </div>
           </div>
           : null}
