@@ -273,13 +273,13 @@ export const HomeView: FC = ({}) => {
     return JSON.stringify(a1)==JSON.stringify(a2);
   }
 
-  const redeemTicket = async (address: string) => {
+  const redeemTicket = async (addr: string) => {
     if (connection && wallet) {
       const program = useProgram(connection, wallet);
-      console.log("redeem %s", address);
+      console.log("redeem %s", addr);
 
       const mintPK = new anchor.web3.PublicKey(mint); 
-      const ticketPK = new anchor.web3.PublicKey(address); 
+      const ticketPK = new anchor.web3.PublicKey(addr); 
       const config = await deriveConfig(program, mintPK);
       await redeem(program, config, ticketPK);
 
@@ -316,7 +316,7 @@ export const HomeView: FC = ({}) => {
                   key={t.pk.toString()}
                   address={t.pk.toString()}
                   numbers={t.numbers}
-                  onSelect={(address: string) => { redeemTicket(address.substring(0, 10)) }}
+                  onSelect={(address: string) => { redeemTicket(address) }}
                 />
               ))}
             </div>
