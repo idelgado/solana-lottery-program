@@ -16,9 +16,13 @@ solana config set -u localhost
 # copy path from 'Keypair Path'
 export ANCHOR_WALLET=$(solana config get | grep 'Keypair Path' | cut -d ' ' -f3)
 
+# add phantom wallet pubkey used to connect to dapp through browser
+export PHANTOM_WALLET="phantom-wallet-pubkey"
+
 # initialize writes pubkeys to 'clientaccounts.env'
 # other funcs read from 'clientaccounts.env'
 # required for further commands
+# will read $PHANTOM_WALLET to mint dummy tokens
 ts-node ./sdk/scripts/initialize.ts
 
 # run app in a new terminal
