@@ -271,7 +271,7 @@ export class Client {
       depositMint,
       userDeployerAta.address,
       mintAuthority.publicKey,
-      100
+      1000
     );
 
     // get user ata
@@ -289,7 +289,7 @@ export class Client {
       depositMint,
       userDepositAta.address,
       mintAuthority.publicKey,
-      100
+      1000
     );
 
     // init swap pool

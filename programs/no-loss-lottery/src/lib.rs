@@ -261,6 +261,9 @@ pub mod no_loss_lottery {
         // set numbers in vault_manager account
         ctx.accounts.vault_manager.winning_numbers = numbers;
 
+        // store numbers for frontend to query
+        ctx.accounts.vault_manager.previous_winning_numbers = numbers;
+
         // locked `buy` function until `find` called
         ctx.accounts.vault_manager.locked = true;
         Ok(())
@@ -825,6 +828,7 @@ pub struct VaultManager {
     pub draw_duration: u64, // in seconds, duration until next draw time
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
+    pub previous_winning_numbers: [u8; 6],
     pub locked: bool, // when draw is called, lock the program until dispense is called
     pub deposit_token_reserve: u64, // amount of tokens to keep in deposit_vault at all times
 }
