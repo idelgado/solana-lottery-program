@@ -2,15 +2,45 @@
 
 Solana Riptide Hackathon
 
+## Basic App Walkthrough
+
+```bash
+
+# start validator and load programs
+anchor localnet
+
+# set config to localhost to test against a local validator
+solana config set -u localhost
+
+# define wallet to use for transactions
+# copy path from 'Keypair Path'
+export ANCHOR_WALLET=$(solana config get | grep 'Keypair Path' | cut -d ' ' -f3)
+
+# initialize writes pubkeys to 'clientaccounts.env'
+# other funcs read from 'clientaccounts.env'
+# required for further commands
+ts-node ./sdk/scripts/initialize.ts
+
+# run app in a new terminal
+cd app/ && yarn run dev
+
+# navigate to webapp with a browser at http://localhost:3000
+
+# connect to webapp with Phantom and airdrop some SOL for transaction fees
+solana airdrop 3 $PHANTOM_WALLET
+
+# draw winning ticket numbers
+ts-node ./sdk/scripts/draw.ts
+
+# dispense prize to winner
+ts-node ./sdk/scripts/dispense.ts
+```
+
 ## test
 
 ```bash
 anchor test
 ```
-
-## prompt
-
-No-loss lottery: Build a platform for users to deposit a variety of tokens into a pool and then connect the pool to a Solana lending protocol which aggregates funds and rewards the interest to a winner over a period of time.
 
 ## lottery flow
 
@@ -28,40 +58,3 @@ No-loss lottery: Build a platform for users to deposit a variety of tokens into 
 - if enough liquidity, transfer `deposit` tokens back to user`
 - if not call `swap_tokens` to get enough liquidity and transfer `deposit` tokens back to user.
 - if `dispense` finds winner, calculate prize amount and call `swap_tokens` to swap all `yield` tokens for `deposit` tokens, calculate prize and send to winner.
-
-## sdk usage
-
-```bash
-# define wallet to use for transactions
-# copy path from 'Keypair Path'
-export ANCHOR_WALLET=$(solana config get | grep 'Keypair Path' | cut -d ' ' -f3)
-
-# initialize writes pubkeys to 'clientaccounts.env'
-# other funcs read from 'clientaccounts.env'
-# required for further commands
-ts-node ./sdk/scripts/initialize.ts
-
-# buy a ticket
-ts-node ./sdk/scripts/buy.ts
-
-# draw winning ticket numbers
-ts-node ./sdk/scripts/draw.ts
-
-# dispense prize to winner
-ts-node ./sdk/scripts/dispense.ts
-```
-
-### TODO
-
-- VRF to pick a random winning ticket
-- soteria
-- github actions automated deploy pipeline
-- rename Vault Manager to manager
-- try to reduce PDA seed sprawl
-- `checked` functions research
-- take % when prize is dispensed
-- change number array size
-- create admin account which deploys/collects fees/calls initialize
-- break up into multiple files
-- write init tests
-- add ticket purchase lock in for > 1 epoch

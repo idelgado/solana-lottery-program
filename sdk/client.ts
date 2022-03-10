@@ -416,6 +416,26 @@ export class Client {
     fs.writeFileSync(envFilePath, envFileString, "utf-8");
     console.log(envFileString);
 
+    // for the web application
+    const browserAccounts = {
+      NEXT_PUBLIC_depositMint: depositMint,
+      NEXT_PUBLIC_depositVault: depositVault,
+      NEXT_PUBLIC_yieldMint: yieldMint,
+      NEXT_PUBLIC_yieldVault: yieldVault,
+      NEXT_PUBLIC_tickets: tickets,
+      NEXT_PUBLIC_vaultManager: vaultMgr,
+      NEXT_PUBLIC_userDepositAta: userDeployerAta.address,
+      NEXT_PUBLIC_swapDepositVault: swapDepositVault.address,
+      NEXT_PUBLIC_swapYieldVault: swapYieldVault.address,
+      NEXT_PUBLIC_poolMint: tokenPoolMint,
+      NEXT_PUBLIC_amm: tokenSwapAccount.publicKey,
+      NEXT_PUBLIC_ammAuthority: tokenSwapAccountAuthority,
+      NEXT_PUBLIC_poolFee: feeAccount.address,
+    };
+
+    const browserEnvFile = await envfile.stringify(browserAccounts);
+    fs.writeFileSync("./app/.env.local", browserEnvFile, "utf-8");
+
     return accounts;
   }
 
