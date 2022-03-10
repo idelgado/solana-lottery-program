@@ -1115,17 +1115,6 @@ async function assertBalance(
   assert.equal(balance, expectedBalance);
 }
 
-async function assertAtLeastBalance(
-  program: Program<NoLossLottery>,
-  account: anchor.web3.PublicKey,
-  expectedBalance: number
-) {
-  const balance = await (
-    await program.provider.connection.getTokenAccountBalance(account)
-  ).value.amount.valueOf();
-  assert.ok(Number(balance) >= expectedBalance);
-}
-
 function assertPublicKey(
   f: Function,
   key1: anchor.web3.PublicKey,

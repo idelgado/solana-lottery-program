@@ -37,10 +37,11 @@ export class Client {
   // initialize lottery
   public async initialize(
     drawDurationSeconds: number,
-    ticketPrice: number
+    ticketPrice: number,
+    userDepositAta: string,
   ): Promise<string> {
     // init accounts
-    const accounts = await this.createClientAccounts();
+    const accounts = await this.createClientAccounts(new anchor.web3.PublicKey(userDepositAta));
 
     // init lottery
     return this.program.rpc.initialize(
@@ -195,7 +196,7 @@ export class Client {
   }
 
   // create no loss lottery program accounts
-  private async createClientAccounts(): Promise<ClientAccounts> {
+  private async createClientAccounts(userDepositAtaAddress?: anchor.web3.PublicKey): Promise<ClientAccounts> {
     const mintAuthority = await newAccountWithLamports(
       this.program.provider.connection
     );
@@ -255,12 +256,30 @@ export class Client {
         this.program.programId
       );
 
+    // get deployer
+    const userDeployerAta = await spl.getOrCreateAssociatedTokenAccount(
+      this.program.provider.connection,
+      mintAuthority,
+      depositMint,
+      userDepositAtaAddress,
+    );
+
+    // mint tokens to deployer 
+    await spl.mintTo(
+      this.program.provider.connection,
+      mintAuthority,
+      depositMint,
+      userDeployerAta.address,
+      mintAuthority.publicKey,
+      100
+    );
+
     // get user ata
     const userDepositAta = await spl.getOrCreateAssociatedTokenAccount(
       this.program.provider.connection,
       mintAuthority,
       depositMint,
-      this.program.provider.wallet.publicKey
+      userDepositAtaAddress,
     );
 
     // mint tokens to user_ata
@@ -384,7 +403,7 @@ export class Client {
       yieldVault: yieldVault,
       tickets: tickets,
       vaultManager: vaultMgr,
-      userDepositAta: userDepositAta.address,
+      userDepositAta: userDeployerAta.address,
       swapDepositVault: swapDepositVault.address,
       swapYieldVault: swapYieldVault.address,
       poolMint: tokenPoolMint,
