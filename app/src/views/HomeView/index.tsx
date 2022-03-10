@@ -1,4 +1,4 @@
-import { FC, useState, useRef } from "react";
+import { FC, useState, useRef, ChangeEvent } from "react";
 import * as spl from "@solana/spl-token";
 import * as tokenSwap from "@solana/spl-token-swap";
 import { Program } from "@project-serum/anchor";
@@ -320,6 +320,15 @@ export const HomeView: FC = ({}) => {
     }
   };
 
+  const onChange = (e: ChangeEvent) => {
+    const target = e.target as HTMLInputElement;
+    const is_valid = /^\d{1,9}$/.test(target.value);
+    console.log('onChange %d', is_valid);
+    if (!is_valid) {
+      target.value = "";
+    }
+  }
+
   viewTickets();
 
   return (
@@ -362,22 +371,22 @@ export const HomeView: FC = ({}) => {
               <div className="w-full flex items-center justify-center">
                 <div className="w-3/4 flex flex-wrap items-center justify-center -mx-3">
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="0" maxLength={1} ref={oneRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="0" maxLength={1} ref={oneRef} onChange={e => onChange(e)} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="0" maxLength={1} ref={twoRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="0" maxLength={1} ref={twoRef} onChange={e => onChange(e)} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-three" type="text" placeholder="0" maxLength={1} ref={threeRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-three" type="text" placeholder="0" maxLength={1} ref={threeRef} onChange={e => onChange(e)} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-four" type="text" placeholder="0" maxLength={1} ref={fourRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-four" type="text" placeholder="0" maxLength={1} ref={fourRef} onChange={e => onChange(e)} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-five" type="text" placeholder="0" maxLength={1} ref={fiveRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-five" type="text" placeholder="0" maxLength={1} ref={fiveRef} onChange={e => onChange(e)} />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-six" type="text" placeholder="0" maxLength={1} ref={sixRef} />
+                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-six" type="text" placeholder="0" maxLength={1} ref={sixRef} onChange={e => onChange(e)} />
                   </div>
                 </div>
               </div>
