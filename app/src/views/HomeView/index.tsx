@@ -32,7 +32,6 @@ export default function useProgram(connection: anchor.web3.Connection, wallet: A
     opts
   );
   const programId = new anchor.web3.PublicKey(IDL.metadata.address);
-  console.log("programId: %s", programId.toString());
   return new anchor.Program(IDL, programId, provider);
 }
 
@@ -215,6 +214,7 @@ export const HomeView: FC = ({}) => {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
   const [t, setTickets] = useState<TicketData[]>([]);
+  const [d, setDashboard] = useState<Array<String>>([]);
 
   const oneRef = useRef<HTMLInputElement>(null);
   const twoRef = useRef<HTMLInputElement>(null);
@@ -226,7 +226,6 @@ export const HomeView: FC = ({}) => {
   const buyTicket = async () => {
     if (connection && wallet) {
       const program = useProgram(connection, wallet);
-      console.log("program: %s", program.programId.toString())
       console.log("buy");
 
       const depositMintPK= new anchor.web3.PublicKey(depositMint); 
@@ -250,6 +249,7 @@ export const HomeView: FC = ({}) => {
       fiveRef.current!.value = '';
       sixRef.current!.value = '';
 
+      viewDashboard();
       viewTickets();
     }
   };
@@ -257,7 +257,6 @@ export const HomeView: FC = ({}) => {
   const viewTickets = async () => {
     if (connection && wallet) {
       const program = useProgram(connection, wallet);
-      console.log("program: %s", program.programId.toString())
 
       // Get accounts associated with the connected wallet
       const walletMemcmp: MemcmpFilter = {
@@ -291,6 +290,26 @@ export const HomeView: FC = ({}) => {
     }
   };
 
+  const viewDashboard = async () => {
+    if (connection && wallet) {
+      const program = useProgram(connection, wallet);
+
+      const deposit = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_depositVault!);
+      const depositTokenBalance = await program.provider.connection.getTokenAccountBalance(deposit);
+      console.log("deposit vault: %s", depositTokenBalance.value.amount);
+
+      const yieldVault = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_yieldVault!);
+      const yieldTokenBalance = await program.provider.connection.getTokenAccountBalance(yieldVault);
+      console.log("yield vault: %s", yieldTokenBalance.value.amount);
+
+      let newDashboard = [depositTokenBalance.value.amount, yieldTokenBalance.value.amount];
+
+      if (JSON.stringify(newDashboard) !== JSON.stringify(d)) {
+          setDashboard(newDashboard);
+      }
+    }
+  };
+
   function arraysEqual(a1: Array<TicketData>, a2: Array<TicketData>) {
     /* WARNING: arrays must not contain {objects} or behavior may be undefined */
     return JSON.stringify(a1)==JSON.stringify(a2);
@@ -307,6 +326,7 @@ export const HomeView: FC = ({}) => {
       const config = await deriveConfig(program, depositMintPK, yieldMintPK);
       await redeem(program, config, ticketPK);
 
+      viewDashboard();
       viewTickets();
     }
   };
@@ -320,6 +340,7 @@ export const HomeView: FC = ({}) => {
     }
   }
 
+  viewDashboard();
   viewTickets();
 
   return (
@@ -338,6 +359,28 @@ export const HomeView: FC = ({}) => {
             <WalletMultiButton className="btn btn-ghost" />
           </div>
         </div>
+
+        {wallet ?
+        <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
+          <h1 className="py-2 px-4 mb-1">Dashboard</h1>
+          <div className="flex flex-col w-full" >
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 my-3 w-full">
+              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
+                <div className="flex items-center text-white dark:text-black" >Deposit Vault</div>
+                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >{d[0]}</p>
+              </div>
+              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
+                <div className="flex items-center text-white dark:text-black" >Yield Vault</div>
+                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >{d[1]}</p>
+              </div>
+              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
+                <div className="flex items-center text-white dark:text-black" >Winning Numbers</div>
+                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >5,412</p>
+              </div>
+            </div>
+          </div>
+        </div>
+          : null}
         <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
           {t.length > 0 ?
             <h1 className="py-2 px-4 mb-1">Tickets</h1>
