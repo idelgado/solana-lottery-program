@@ -322,7 +322,7 @@ export const HomeView: FC = ({}) => {
 
   const onChange = (e: ChangeEvent) => {
     const target = e.target as HTMLInputElement;
-    const is_valid = /^\d{1,9}$/.test(target.value);
+    const is_valid = /^\d{1}$/.test(target.value);
     console.log('onChange %d', is_valid);
     if (!is_valid) {
       target.value = "";
