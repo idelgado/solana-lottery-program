@@ -31,7 +31,10 @@ cd app/ && yarn run dev
 # navigate to webapp with a browser at http://localhost:3000
 
 # connect to webapp with Phantom and airdrop some SOL for transaction fees
-solana airdrop 3 $PHANTOM_WALLET
+solana airdrop 100 $PHANTOM_WALLET
+
+# stake deposit tokens
+ts-node ./sdk/scripts/stake.ts
 
 # draw winning ticket numbers
 ts-node ./sdk/scripts/draw.ts

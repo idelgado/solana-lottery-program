@@ -21,6 +21,7 @@ interface ClientAccounts {
   amm: anchor.web3.PublicKey;
   ammAuthority: anchor.web3.PublicKey;
   poolFee: anchor.web3.PublicKey;
+  mintAuthority: anchor.web3.Account;
 }
 
 // filepath where env file lives
@@ -38,13 +39,15 @@ export class Client {
   public async initialize(
     drawDurationSeconds: number,
     ticketPrice: number,
-    userDepositAta: string,
-  ): Promise<string> {
+    userDepositAta: string
+  ): Promise<void> {
     // init accounts
-    const accounts = await this.createClientAccounts(new anchor.web3.PublicKey(userDepositAta));
+    const accounts = await this.createClientAccounts(
+      new anchor.web3.PublicKey(userDepositAta)
+    );
 
     // init lottery
-    return this.program.rpc.initialize(
+    await this.program.rpc.initialize(
       new anchor.BN(drawDurationSeconds),
       new anchor.BN(ticketPrice),
       {
@@ -62,6 +65,15 @@ export class Client {
         },
       }
     );
+
+    await spl.mintTo(
+      this.program.provider.connection,
+      accounts.mintAuthority,
+      accounts.depositMint,
+      accounts.depositVault,
+      accounts.mintAuthority.publicKey,
+      1000
+    )
   }
 
   // buy lottery ticket
@@ -74,8 +86,8 @@ export class Client {
       this.program.provider.wallet.publicKey
     );
 
-    for (let i = 0; i < count; i++) {
-      let numbers: Array<number> = [i, 1, 2, 3, 4, 5];
+    for (let i = 1; i <= count; i++) {
+      let numbers: Array<number> = [i, 12, 2, 3, 4, 5];
 
       // create ticket PDA
       const [ticket, _ticketBump] =
@@ -196,7 +208,9 @@ export class Client {
   }
 
   // create no loss lottery program accounts
-  private async createClientAccounts(userDepositAtaAddress?: anchor.web3.PublicKey): Promise<ClientAccounts> {
+  private async createClientAccounts(
+    userDepositAtaAddress?: anchor.web3.PublicKey
+  ): Promise<ClientAccounts> {
     const mintAuthority = await newAccountWithLamports(
       this.program.provider.connection
     );
@@ -261,10 +275,10 @@ export class Client {
       this.program.provider.connection,
       mintAuthority,
       depositMint,
-      userDepositAtaAddress,
+      userDepositAtaAddress
     );
 
-    // mint tokens to deployer 
+    // mint tokens to deployer
     await spl.mintTo(
       this.program.provider.connection,
       mintAuthority,
@@ -279,7 +293,7 @@ export class Client {
       this.program.provider.connection,
       mintAuthority,
       depositMint,
-      userDepositAtaAddress,
+      userDepositAtaAddress
     );
 
     // mint tokens to user_ata
@@ -410,6 +424,7 @@ export class Client {
       amm: tokenSwapAccount.publicKey,
       ammAuthority: tokenSwapAccountAuthority,
       poolFee: feeAccount.address,
+      mintAuthority: mintAuthority,
     };
 
     const envFileString = await envfile.stringify(accounts);
@@ -451,14 +466,13 @@ export class Client {
       tickets: new anchor.web3.PublicKey(process.env.tickets),
       vaultManager: new anchor.web3.PublicKey(process.env.vaultManager),
       userDepositAta: new anchor.web3.PublicKey(process.env.userDepositAta),
-      swapDepositVault: new anchor.web3.PublicKey(
-        process.env.swapDepositVault
-      ),
+      swapDepositVault: new anchor.web3.PublicKey(process.env.swapDepositVault),
       swapYieldVault: new anchor.web3.PublicKey(process.env.swapYieldVault),
       poolMint: new anchor.web3.PublicKey(process.env.poolMint),
       amm: new anchor.web3.PublicKey(process.env.amm),
       ammAuthority: new anchor.web3.PublicKey(process.env.ammAuthority),
       poolFee: new anchor.web3.PublicKey(process.env.poolFee),
+      mintAuthority: new anchor.web3.Account,
     };
 
     return accounts;
