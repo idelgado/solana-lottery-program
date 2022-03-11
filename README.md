@@ -65,3 +65,9 @@ anchor test
 - if enough liquidity, transfer `deposit` tokens back to user`
 - if not call `swap_tokens` to get enough liquidity and transfer `deposit` tokens back to user.
 - if `dispense` finds winner, calculate prize amount and call `swap_tokens` to swap all `yield` tokens for `deposit` tokens, calculate prize and send to winner.
+
+### Transform Steps
+
+1. Convert from PDA only to PDA + NFT
+2. Use Orca in Dev, SOL_ORCA
+3. Split lottery and integration programs
