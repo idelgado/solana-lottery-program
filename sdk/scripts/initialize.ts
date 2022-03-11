@@ -6,7 +6,7 @@ async function initialize() {
   // read from env var
   const userAddress = process.env.PHANTOM_WALLET;
 
-  const initializeTxSig = await lotteryClient.initialize(1, 1, userAddress);
+  const initializeTxSig = await lotteryClient.initialize(120, 1, userAddress);
   console.log("initializeTxSig:", initializeTxSig);
 }
 

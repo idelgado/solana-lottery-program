@@ -15,6 +15,7 @@ export const TicketCard: FC<Props> = ({
     const drawing = numbers.join(' ');
     return (
         <div className={`card max-w-xs compact rounded-md`} onClick={() => onSelect(address)}>
+           <label title="Redeem Ticket">
             <figure className="cursor-pointer min-h-16 animation-pulse-color">
                 <div className="w-auto h-24 flex items-center justify-center bg-gray-900 bg-opacity-40">
                     <span className="text-8xl">🎟️</span>
@@ -24,6 +25,7 @@ export const TicketCard: FC<Props> = ({
                 <h2 className="card-title text-sm text-center">{drawing}</h2>
                 <h2 className="text-xs text-center">{address.substring(0, 10)}...</h2>
             </div>
+            </label>
         </div>
     );
 };
