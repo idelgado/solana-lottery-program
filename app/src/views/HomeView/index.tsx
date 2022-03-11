@@ -9,6 +9,7 @@ import * as anchor from '@project-serum/anchor';
 import { NoLossLottery } from "../../../../target/types/no_loss_lottery";
 import { TicketCard } from "./ticketcard";
 import styles from "./index.module.css";
+import CountDownTimer from "components/CountDownTimer";
 import {
   ConfirmOptions,
   MemcmpFilter,
@@ -58,6 +59,19 @@ const poolMint = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_poolMint!);
 const tokenSwapAccount = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_amm!);
 const tokenSwapAuthority = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_ammAuthority!);
 const poolFee = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_poolFee!);
+
+let hoursMinSecs = {hours:0, minutes: 0, seconds: 0}
+
+function getTimeRemaining(endtime: number) {
+  const now = Date.parse(new Date().toUTCString()) / 1000;
+  const total = endtime - now;
+  const seconds = total > 0 ? Math.floor( (total) % 60 ): 0;
+  const minutes = total > 0 ? Math.floor( (total/60) % 60 ): 0;
+  const hours = total > 0 ? Math.floor( (total/(60*60)) % 24 ): 0;
+  const days = total > 0 ? Math.floor( total/(60*60*24)): 0;
+
+  return { total, days, hours, minutes, seconds };
+}
 
 async function deriveConfig(
   program: anchor.Program<NoLossLottery>,
@@ -302,7 +316,24 @@ export const HomeView: FC = ({}) => {
       const yieldTokenBalance = await program.provider.connection.getTokenAccountBalance(yieldVault);
       console.log("yield vault: %s", yieldTokenBalance.value.amount);
 
-      let newDashboard = [depositTokenBalance.value.amount, yieldTokenBalance.value.amount];
+      const vaultManager = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_vaultManager!);
+      const vaultManagerAccount = await program.account.vaultManager.fetch(vaultManager);
+
+      const timeValues = getTimeRemaining(vaultManagerAccount.cutoffTime.toNumber());
+      hoursMinSecs = { hours: timeValues.days * 24 + timeValues.hours,
+                       minutes: timeValues.minutes,
+                       seconds: timeValues.seconds };
+
+      let newDashboard = [];
+      let drawing = "N/A";
+      if (vaultManagerAccount.previousWinningNumbers.toString() !== "0,0,0,0,0,0") {
+        drawing = vaultManagerAccount.previousWinningNumbers.join(' ');
+      }
+      newDashboard = [
+        depositTokenBalance.value.amount,
+        yieldTokenBalance.value.amount,
+        drawing,
+        ];
 
       if (JSON.stringify(newDashboard) !== JSON.stringify(d)) {
           setDashboard(newDashboard);
@@ -364,6 +395,14 @@ export const HomeView: FC = ({}) => {
         <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
           <h1 className="py-2 px-4 mb-1">Dashboard</h1>
           <div className="flex flex-col w-full" >
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 my-3 w-full">
+              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
+                <div className="flex items-center text-white dark:text-black" >Draw Time</div>
+                <p className="mt-2 text-3xl font-bold spacing-sm text-white text-center dark:text-black" >
+                  <CountDownTimer hoursMinSecs={hoursMinSecs}/>
+                </p>
+              </div>
+            </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 my-3 w-full">
               <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
                 <div className="flex items-center text-white dark:text-black" >Deposit Vault</div>
@@ -375,7 +414,7 @@ export const HomeView: FC = ({}) => {
               </div>
               <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
                 <div className="flex items-center text-white dark:text-black" >Winning Numbers</div>
-                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >5,412</p>
+                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >{d[2]}</p>
               </div>
             </div>
           </div>
