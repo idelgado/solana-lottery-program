@@ -1,4 +1,4 @@
-import { FC, useState, useRef, ChangeEvent } from "react";
+import { FC, useEffect, useState, useRef, ChangeEvent } from "react";
 import * as spl from "@solana/spl-token";
 import * as tokenSwap from "@solana/spl-token-swap";
 import { Program } from "@project-serum/anchor";
@@ -230,6 +230,14 @@ export const HomeView: FC = ({}) => {
   const [t, setTickets] = useState<TicketData[]>([]);
   const [d, setDashboard] = useState<Array<String>>([]);
 
+  // Temporary workaround in lieu of subscriptions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      viewDashboard();
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   const oneRef = useRef<HTMLInputElement>(null);
   const twoRef = useRef<HTMLInputElement>(null);
   const threeRef = useRef<HTMLInputElement>(null);
@@ -398,9 +406,9 @@ export const HomeView: FC = ({}) => {
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 my-3 w-full">
               <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
                 <div className="flex items-center text-white dark:text-black" >Draw Time</div>
-                <p className="mt-2 text-3xl font-bold spacing-sm text-white text-center dark:text-black" >
+                <div className="mt-2 text-3xl font-bold spacing-sm text-white text-center dark:text-black" >
                   <CountDownTimer hoursMinSecs={hoursMinSecs}/>
-                </p>
+                </div>
               </div>
             </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 my-3 w-full">
