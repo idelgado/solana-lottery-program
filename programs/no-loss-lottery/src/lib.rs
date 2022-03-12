@@ -141,6 +141,41 @@ pub mod no_loss_lottery {
             ]],
         )?;
 
+        let collection_accounts = [
+            ctx.accounts.collection_metadata.clone(),
+            ctx.accounts.vault_manager.clone().to_account_info(),
+            ctx.accounts.user.clone().to_account_info(),
+            ctx.accounts.vault_manager.clone().to_account_info(),
+            ctx.accounts.collection_mint.clone().to_account_info(),
+            ctx.accounts.collection_metadata.clone().to_account_info(),
+            ctx.accounts.collection_master_edition.clone(),
+        ];
+
+        let collection_ix = set_and_verify_collection(
+            ctx.accounts.metadata_program.clone().key(),
+            ctx.accounts.collection_metadata.clone().key(),
+            ctx.accounts.vault_manager.clone().key(),
+            ctx.accounts.user.clone().key(),
+            ctx.accounts.vault_manager.clone().key(),
+            ctx.accounts.collection_mint.clone().key(),
+            ctx.accounts.collection_metadata.clone().key(),
+            ctx.accounts.collection_master_edition.clone().key(),
+            None,
+        );
+
+        // set and verify collection
+        invoke_signed(
+            &collection_ix,
+            &collection_accounts,
+            &[&[
+                ctx.accounts.deposit_mint.clone().key().as_ref(),
+                ctx.accounts.yield_mint.clone().key().as_ref(),
+                ctx.accounts.deposit_vault.clone().key().as_ref(),
+                ctx.accounts.yield_vault.clone().key().as_ref(),
+                &[*ctx.bumps.get("vault_manager").unwrap()],
+            ]],
+        )?;
+
         // set vault manager config
         let vault_mgr = &mut ctx.accounts.vault_manager;
         vault_mgr.draw_duration = draw_duration;
