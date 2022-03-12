@@ -2,6 +2,11 @@ import * as anchor from "@project-serum/anchor";
 import * as spl from "@solana/spl-token";
 import * as assert from "assert";
 import * as tokenSwap from "@solana/spl-token-swap";
+import {
+  MetadataProgram,
+  Metadata,
+  Edition,
+} from "@metaplex-foundation/mpl-token-metadata";
 import { Program } from "@project-serum/anchor";
 import { NoLossLottery } from "../target/types/no_loss_lottery";
 
@@ -25,6 +30,18 @@ interface Config {
   keys: Map<String, anchor.web3.PublicKey>;
   mintAuthority: anchor.web3.Account;
 }
+
+describe.only("Initialize", () => {
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.Provider.env());
+
+  const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
+
+  it("Init success", async () => {
+    const drawDurationSeconds = 1;
+    const config = await initialize(program, drawDurationSeconds);
+  });
+});
 
 describe("Buy", () => {
   // Configure the client to use the local cluster.
@@ -667,19 +684,19 @@ async function initialize(
 
   // get PDAs
 
-  const [depositVault, depositVaultBump] =
+  const [depositVault, _depositVaultBump] =
     await anchor.web3.PublicKey.findProgramAddress(
       [depositMint.toBuffer()],
       program.programId
     );
 
-  const [yieldVault, yieldVaultBump] =
+  const [yieldVault, _yieldVaultBump] =
     await anchor.web3.PublicKey.findProgramAddress(
       [yieldMint.toBuffer()],
       program.programId
     );
 
-  const [vaultMgr, vaultMgrBump] =
+  const [vaultMgr, _vaultMgrBump] =
     await anchor.web3.PublicKey.findProgramAddress(
       [
         depositMint.toBuffer(),
@@ -690,16 +707,27 @@ async function initialize(
       program.programId
     );
 
-  const [tickets, ticketsBump] = await anchor.web3.PublicKey.findProgramAddress(
-    [
-      depositMint.toBuffer(),
-      yieldMint.toBuffer(),
-      depositVault.toBuffer(),
-      yieldVault.toBuffer(),
-      vaultMgr.toBuffer(),
-    ],
-    program.programId
-  );
+  const [collectionMint, _collectionMintBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [
+        depositMint.toBuffer(),
+        yieldMint.toBuffer(),
+        depositVault.toBuffer(),
+        yieldVault.toBuffer(),
+        vaultMgr.toBuffer(),
+      ],
+      program.programId
+    );
+
+  const collectionMetadata = await Metadata.getPDA(collectionMint);
+  const collectionMasterEdition = await Edition.getPDA(collectionMint);
+
+  const [collectionAta, _collectionAtaBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [collectionMint.toBuffer()],
+      program.programId
+    );
+  console.log("collection accounts created");
 
   // ticket price in tokens
   const ticketPrice = new anchor.BN(1);
@@ -715,9 +743,13 @@ async function initialize(
         depositVault: depositVault,
         yieldVault: yieldVault,
         vaultManager: vaultMgr,
-        tickets: tickets,
+        collectionMint: collectionMint,
+        collectionMetadata: collectionMetadata,
+        collectionMasterEdition: collectionMasterEdition,
+        collectionAta: collectionAta,
         user: program.provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
+        metadataProgram: MetadataProgram.PUBKEY,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       },
@@ -744,13 +776,13 @@ async function initialize(
   );
   console.log("minted %d tokens to user_ata", userDepositAtaBalance);
 
-  // get user tickets ata
-  const userTicketsAta = await spl.getOrCreateAssociatedTokenAccount(
-    program.provider.connection,
-    mintAuthority,
-    tickets,
-    program.provider.wallet.publicKey
-  );
+  //// get user tickets ata
+  //const userTicketsAta = await spl.getOrCreateAssociatedTokenAccount(
+  //  program.provider.connection,
+  //  mintAuthority,
+  //  tickets,
+  //  program.provider.wallet.publicKey
+  //);
 
   // mint tokens to yield vault for testing
   await spl.mintTo(
@@ -770,9 +802,9 @@ async function initialize(
   keys.set(YIELD_MINT, yieldMint);
   keys.set(VAULT_MANAGER, vaultMgr);
   keys.set(MINT_AUTHORITY, mintAuthority.publicKey);
-  keys.set(TICKETS, tickets);
+  //keys.set(TICKETS, tickets);
   keys.set(USER_DEPOSIT_ATA, userDepositAta.address);
-  keys.set(USER_TICKET_ATA, userTicketsAta.address);
+  //keys.set(USER_TICKET_ATA, userTicketsAta.address);
 
   const config: Config = {
     keys: keys,
