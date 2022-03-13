@@ -25,13 +25,17 @@ const POOL_MINT = "POOL_MINT";
 const TOKEN_SWAP_ACCOUNT = "TOKEN_SWAP_ACCOUNT";
 const TOKEN_SWAP_ACCOUNT_AUTHORITY = "TOKEN_SWAP_ACCOUNT_AUTHORITY";
 const POOL_FEE = "POOL_FEE";
+const COLLECTION_MINT = "COLLECTION_MINT";
+const COLLECTION_METADATA = "COLLECTION_METADATA";
+const COLLECTION_MASTER_EDITION = "COLLECTION_MASTER_EDITION";
+const COLLECTION_ATA = "COLLECTION_ATA";
 
 interface Config {
   keys: Map<String, anchor.web3.PublicKey>;
   mintAuthority: anchor.web3.Account;
 }
 
-describe.only("Initialize", () => {
+describe("Initialize", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
 
@@ -39,11 +43,11 @@ describe.only("Initialize", () => {
 
   it("Init success", async () => {
     const drawDurationSeconds = 1;
-    const config = await initialize(program, drawDurationSeconds);
+    await initialize(program, drawDurationSeconds);
   });
 });
 
-describe("Buy", () => {
+describe.only("Buy", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
 
@@ -55,15 +59,11 @@ describe("Buy", () => {
     const config = await initialize(program, drawDurationSeconds);
     const numbers = [1, 2, 3, 4, 5, 6];
 
-    const [ticket, ticketBump] = await buy(program, numbers, config, null);
-    await assertBalance(program, config.keys.get(USER_TICKET_ATA), 1);
+    const [ticket, userTicketAta] = await buy(program, numbers, config, null);
+    await assertBalance(program, userTicketAta, 1);
 
     const userKey = await program.account.ticket.fetch(ticket);
-    assertPublicKey(
-      assert.equal,
-      program.provider.wallet.publicKey,
-      userKey.owner
-    );
+    assertPublicKey(assert.equal, ticket, userKey.ticketMint);
   });
 
   it("Buy ticket with invalid number values", async () => {
@@ -71,16 +71,13 @@ describe("Buy", () => {
     const config = await initialize(program, drawDurationSeconds);
     const numbers = [0, 0, 0, 0, 0, 0];
 
-    const [ticket, ticketBump] = await buy(
+    const [ticket, userTicketAta] = await buy(
       program,
       numbers,
       config,
       program.idl.errors[2].code
     );
-    assert.rejects(
-      async () =>
-        await assertBalance(program, config.keys.get(USER_TICKET_ATA), 0)
-    );
+    assert.rejects(async () => await assertBalance(program, userTicketAta, 0));
   });
 
   it("Buy ticket with invalid input size", async () => {
@@ -106,15 +103,11 @@ describe("Buy", () => {
     const config = await initialize(program, drawDurationSeconds);
     const numbers = [1, 2, 3, 4, 5, 6];
 
-    const [ticket, ticketBump] = await buy(program, numbers, config, null);
-    await assertBalance(program, config.keys.get(USER_TICKET_ATA), 1);
+    const [ticket, userTicketAta] = await buy(program, numbers, config, null);
+    await assertBalance(program, userTicketAta, 1);
 
     const userKey = await program.account.ticket.fetch(ticket);
-    assertPublicKey(
-      assert.equal,
-      program.provider.wallet.publicKey,
-      userKey.owner
-    );
+    assertPublicKey(assert.equal, ticket, userKey.ticketMint);
 
     assert.rejects(async () => await buy(program, numbers, config, null));
   });
@@ -126,25 +119,31 @@ describe("Buy", () => {
     const numbersA = [1, 2, 3, 4, 5, 6];
     const numbersB = [7, 8, 9, 10, 11, 12];
 
-    const [ticketA, ticketBumpA] = await buy(program, numbersA, config, null);
-    await assertBalance(program, config.keys.get(USER_TICKET_ATA), 1);
+    const [ticketA, userTicketAAta] = await buy(
+      program,
+      numbersA,
+      config,
+      null
+    );
+    await assertBalance(program, userTicketAAta, 1);
     const userKeyA = await program.account.ticket.fetch(ticketA);
-    assertPublicKey(
-      assert.equal,
-      program.provider.wallet.publicKey,
-      userKeyA.owner
-    );
+    assertPublicKey(assert.equal, ticketA, userKeyA.ticketMint);
 
-    const [ticketB, ticketBumpB] = await buy(program, numbersB, config, null);
-    await assertBalance(program, config.keys.get(USER_TICKET_ATA), 2);
+    const [ticketB, userTicketBAta] = await buy(
+      program,
+      numbersB,
+      config,
+      null
+    );
+    await assertBalance(program, userTicketBAta, 1);
     const userKeyB = await program.account.ticket.fetch(ticketB);
+    assertPublicKey(assert.equal, ticketB, userKeyB.ticketMint);
+
     assertPublicKey(
       assert.equal,
-      program.provider.wallet.publicKey,
-      userKeyB.owner
+      userKeyA.collectionMint,
+      userKeyB.collectionMint
     );
-
-    assertPublicKey(assert.equal, userKeyA.owner, userKeyB.owner);
   });
 
   it("Buy second ticket with insufficient funds", async () => {
@@ -154,14 +153,15 @@ describe("Buy", () => {
     const numbersA = [1, 2, 3, 4, 5, 6];
     const numbersB = [7, 8, 9, 10, 11, 12];
 
-    const [ticketA, ticketBumpA] = await buy(program, numbersA, config, null);
-    await assertBalance(program, config.keys.get(USER_TICKET_ATA), 1);
-    const userKeyA = await program.account.ticket.fetch(ticketA);
-    assertPublicKey(
-      assert.equal,
-      program.provider.wallet.publicKey,
-      userKeyA.owner
+    const [ticketA, userTicketAAta] = await buy(
+      program,
+      numbersA,
+      config,
+      null
     );
+    await assertBalance(program, userTicketAAta, 1);
+    const userKeyA = await program.account.ticket.fetch(ticketA);
+    assertPublicKey(assert.equal, ticketA, userKeyA.ticketMint);
 
     assert.rejects(async () => await buy(program, numbersB, config, null));
   });
@@ -181,12 +181,12 @@ describe("Redeem", () => {
     // choose your lucky numbers!
     const numbers = [1, 2, 3, 4, 5, 6];
 
-    const [ticket, ticketBump] = await buy(program, numbers, config, null);
+    const [ticket, userTicketAta] = await buy(program, numbers, config, null);
 
     // balance is 0 after buying a ticket
     await assertBalance(program, config.keys.get(USER_DEPOSIT_ATA), 0);
 
-    await redeem(program, config, ticket, ticketBump, null);
+    await redeem(program, config, ticket, null);
 
     // we get our token back
     await assertBalance(program, config.keys.get(USER_DEPOSIT_ATA), 1);
@@ -207,8 +207,8 @@ describe("Redeem", () => {
     // balance is 0 after buying 2 tickets
     await assertBalance(program, config.keys.get(USER_DEPOSIT_ATA), 0);
 
-    await redeem(program, config, ticket1, ticketBump1, null);
-    await redeem(program, config, ticket2, ticketBump2, null);
+    await redeem(program, config, ticket1, null);
+    await redeem(program, config, ticket2, null);
 
     // we get our tokens back
     await assertBalance(program, config.keys.get(USER_DEPOSIT_ATA), 2);
@@ -224,10 +224,8 @@ describe("Redeem", () => {
 
     const [ticket, ticketBump] = await buy(program, numbers, config, null);
 
-    await redeem(program, config, ticket, ticketBump, null);
-    assert.rejects(
-      async () => await redeem(program, config, ticket, ticketBump, null)
-    );
+    await redeem(program, config, ticket, null);
+    assert.rejects(async () => await redeem(program, config, ticket, null));
 
     // we get our token back
     await assertBalance(program, config.keys.get(USER_DEPOSIT_ATA), 100);
@@ -266,7 +264,7 @@ describe("Redeem", () => {
     await stake(program, config);
 
     // redeem now, not enough tokens in deposit_vault
-    await redeem(program, config, ticket, ticketBump, null);
+    await redeem(program, config, ticket, null);
 
     // we get 1 deposit_token back after a single redeem call
     await assertBalance(
@@ -417,16 +415,18 @@ describe("Dispense", () => {
     // deliberatly choose a non winning combination
     const numbers = [7, 8, 9, 10, 11, 12];
 
-    const [ticket, ticketBump] = await buy(program, numbers, config, null);
+    const [ticketMint, _userTicketAta] = await buy(program, numbers, config, null);
 
     // wait for cutoff_time to expire
     await sleep(drawDurationSeconds + 1);
 
     await draw(program, config, null);
 
-    await dispense(program, config, numbers, program.idl.errors[4].code);
+    // pass in winning numbers
+    const winningNumbers = [0, 1, 2, 3, 4, 5]
+    await dispense(program, config, winningNumbers, program.idl.errors[4].code);
 
-    await assertBalance(program, config.keys.get(USER_TICKET_ATA), 1);
+    await assertBalance(program, ticketMint, 1);
     // subtract 1 to account for a ticket purchase
     await assertBalance(
       program,
@@ -512,7 +512,7 @@ describe("Dispense", () => {
     // deliberatly choose a non winning combination
     const numbers = [7, 8, 9, 10, 11, 12];
 
-    const [ticket, ticketBump] = await buy(program, numbers, config, null);
+    const [ticketMint, userTicketAta] = await buy(program, numbers, config, null);
 
     // wait for cutoff_time to expire
     await sleep(drawDurationSeconds + 1);
@@ -802,9 +802,11 @@ async function initialize(
   keys.set(YIELD_MINT, yieldMint);
   keys.set(VAULT_MANAGER, vaultMgr);
   keys.set(MINT_AUTHORITY, mintAuthority.publicKey);
-  //keys.set(TICKETS, tickets);
   keys.set(USER_DEPOSIT_ATA, userDepositAta.address);
-  //keys.set(USER_TICKET_ATA, userTicketsAta.address);
+  keys.set(COLLECTION_MINT, collectionMint);
+  keys.set(COLLECTION_METADATA, collectionMetadata);
+  keys.set(COLLECTION_MASTER_EDITION, collectionMasterEdition);
+  keys.set(COLLECTION_ATA, collectionAta);
 
   const config: Config = {
     keys: keys,
@@ -819,12 +821,26 @@ async function buy(
   numbers: Array<number>,
   config: Config,
   error: number | null
-): Promise<[anchor.web3.PublicKey, number]> {
+): Promise<[anchor.web3.PublicKey, anchor.web3.PublicKey]> {
   // create ticket PDA
-  const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
+  const [ticket, _ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
     [Uint8Array.from(numbers), config.keys.get(VAULT_MANAGER).toBuffer()],
     program.programId
   );
+
+  const [ticketMint, _ticketMintBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [ticket.toBuffer()],
+      program.programId
+    );
+
+  const userTicketAta = await spl.getAssociatedTokenAddress(
+    ticketMint,
+    program.provider.wallet.publicKey
+  );
+
+  const ticketMetadata = await Metadata.getPDA(ticketMint);
+  const ticketMasterEdition = await Edition.getPDA(ticketMint);
 
   // buy a ticket
   try {
@@ -835,13 +851,19 @@ async function buy(
         yieldMint: config.keys.get(YIELD_MINT),
         yieldVault: config.keys.get(YIELD_VAULT),
         vaultManager: config.keys.get(VAULT_MANAGER),
-        tickets: config.keys.get(TICKETS),
+        collectionMint: config.keys.get(COLLECTION_MINT),
+        collectionMetadata: config.keys.get(COLLECTION_METADATA),
+        collectionMasterEdition: config.keys.get(COLLECTION_MASTER_EDITION),
+        ticketMint: ticketMint,
+        ticketMetadata: ticketMetadata,
+        ticketMasterEdition: ticketMasterEdition,
         ticket: ticket,
-        userTicketsAta: config.keys.get(USER_TICKET_ATA),
+        userTicketAta: userTicketAta,
         user: program.provider.wallet.publicKey,
         userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
         systemProgram: anchor.web3.SystemProgram.programId,
         associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+        metadataProgram: MetadataProgram.PUBKEY,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       },
@@ -854,16 +876,26 @@ async function buy(
       throw e;
     }
   }
-  return [ticket, ticketBump];
+  return [ticket, userTicketAta];
 }
 
 async function redeem(
   program: Program<NoLossLottery>,
   config: Config,
   ticket: anchor.web3.PublicKey,
-  ticketBump: number,
   error: number | null
 ) {
+  const [ticketMint, _ticketMintBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [ticket.toBuffer()],
+      program.programId
+    );
+
+  const userTicketAta = await spl.getAssociatedTokenAddress(
+    ticketMint,
+    program.provider.wallet.publicKey
+  );
+
   try {
     // user redeem token
     const redeemTxSig = await program.rpc.redeem({
@@ -878,10 +910,11 @@ async function redeem(
         amm: config.keys.get(TOKEN_SWAP_ACCOUNT),
         ammAuthority: config.keys.get(TOKEN_SWAP_ACCOUNT_AUTHORITY),
         poolFee: config.keys.get(POOL_FEE),
-        tickets: config.keys.get(TICKETS),
         vaultManager: config.keys.get(VAULT_MANAGER),
+        collectionMint: config.keys.get(COLLECTION_MINT),
+        ticketMint: ticketMint,
         ticket: ticket,
-        userTicketsAta: config.keys.get(USER_TICKET_ATA),
+        userTicketAta: userTicketAta,
         user: program.provider.wallet.publicKey,
         userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
         tokenSwapProgram: tokenSwap.TOKEN_SWAP_PROGRAM_ID,
@@ -913,7 +946,6 @@ async function draw(
         depositVault: config.keys.get(DEPOSIT_VAULT),
         yieldMint: config.keys.get(YIELD_MINT),
         yieldVault: config.keys.get(YIELD_VAULT),
-        tickets: config.keys.get(TICKETS),
         vaultManager: config.keys.get(VAULT_MANAGER),
         user: program.provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -938,15 +970,53 @@ async function dispense(
   error = null
 ) {
   try {
-    // fetch winning numbers
-    const vaultMgrAccount = await program.account.vaultManager.fetch(
-      config.keys.get(VAULT_MANAGER)
-    );
+    // find winning ticket PDA
+    const [ticket, _ticketBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [Uint8Array.from(numbers), config.keys.get(VAULT_MANAGER).toBuffer()],
+        program.programId
+      );
 
-    // create winning ticket PDA
-    const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Uint8Array.from(numbers), config.keys.get(VAULT_MANAGER).toBuffer()],
-      program.programId
+    // find winning ticket nft
+    const [ticketMint, _ticketMintBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [ticket.toBuffer()],
+        program.programId
+      );
+
+    // get owner of ticket nft
+
+    // set owner to user wallet as default
+    // if a winning ticket exists this will be overwritten with the ticket owner's pubkey
+    let winningTicketOwner = new anchor.web3.PublicKey(program.provider.wallet.publicKey);
+
+    try {
+      // get largest token account holders of nft, there should only be 1 with an amount of 1
+      const largestAccounts =
+        await program.provider.connection.getTokenLargestAccounts(ticketMint);
+      // get parsed data of the largest account
+      const largestAccountInfo =
+        await program.provider.connection.getParsedAccountInfo(
+          largestAccounts.value[0].address
+        );
+      winningTicketOwner = new anchor.web3.PublicKey(
+        (
+          largestAccountInfo.value?.data as anchor.web3.ParsedAccountData
+        ).parsed.info.owner
+      );
+    } catch (e) {
+      console.log(e);
+    }
+
+    // get winner token accounts
+    const winnerDepositAta = await spl.getAssociatedTokenAddress(
+      config.keys.get(COLLECTION_MINT),
+      winningTicketOwner
+    );
+      
+    const winnerTicketAta = await spl.getAssociatedTokenAddress(
+      ticketMint,
+      winningTicketOwner
     );
 
     // dispense prize to winner
@@ -956,9 +1026,10 @@ async function dispense(
         depositVault: config.keys.get(DEPOSIT_VAULT),
         yieldMint: config.keys.get(YIELD_MINT),
         yieldVault: config.keys.get(YIELD_VAULT),
-        tickets: config.keys.get(TICKETS),
         vaultManager: config.keys.get(VAULT_MANAGER),
+        collectionMint: config.keys.get(COLLECTION_MINT),
         ticket: ticket,
+        winnerTicketAta: winnerTicketAta,
         swapYieldVault: config.keys.get(SWAP_YIELD_VAULT),
         swapDepositVault: config.keys.get(SWAP_DEPOSIT_VAULT),
         poolMint: config.keys.get(POOL_MINT),
@@ -966,10 +1037,12 @@ async function dispense(
         ammAuthority: config.keys.get(TOKEN_SWAP_ACCOUNT_AUTHORITY),
         poolFee: config.keys.get(POOL_FEE),
         user: program.provider.wallet.publicKey,
-        userDepositAta: config.keys.get(USER_DEPOSIT_ATA),
+        winnerDepositAta: winnerDepositAta,
         tokenSwapProgram: tokenSwap.TOKEN_SWAP_PROGRAM_ID,
+        associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       },
     });
     console.log("dispenseTxSig:", dispenseTxSig);
