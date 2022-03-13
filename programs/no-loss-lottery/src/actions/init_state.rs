@@ -38,13 +38,13 @@ impl InitState<'_> {
     pub fn validate(&self, ctx: &Context<Self>, params: &InitStateParams) -> Result<()> {
         msg!("Validate init");
         if params.max_result > MAX_RESULT {
-            return Err(error!(VrfErrorCode::MaxResultExceedsMaximum));
+            return Err(error!(NLLErrorCode::MaxResultExceedsMaximum));
         }
 
         msg!("Checking VRF Account");
         let vrf_account_info = &ctx.accounts.vrf;
         let _vrf = VrfAccountData::new(vrf_account_info)
-            .map_err(|_| VrfErrorCode::InvalidSwitchboardVrfAccount)?;
+            .map_err(|_| NLLErrorCode::InvalidSwitchboardVrfAccount)?;
 
         Ok(())
     }

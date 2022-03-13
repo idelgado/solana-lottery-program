@@ -41,12 +41,12 @@ pub mod no_loss_lottery {
     ) -> Result<()> {
         // ticket_price must be > 0
         if ticket_price <= 0 {
-            return Err(error!(ErrorCode::InvalidTicketPrice));
+            return Err(error!(NLLErrorCode::InvalidTicketPrice));
         }
 
         // draw_duration must be > 0
         if draw_duration <= 0 {
-            return Err(error!(ErrorCode::InvalidDrawDuration));
+            return Err(error!(NLLErrorCode::InvalidDrawDuration));
         }
 
         // set vault manager config
@@ -77,12 +77,12 @@ pub mod no_loss_lottery {
 
         // do not allow user to pass in zeroed array of numbers
         if numbers == [0u8; 6] {
-            return Err(error!(ErrorCode::InvalidNumbers));
+            return Err(error!(NLLErrorCode::InvalidNumbers));
         }
 
         // if buy is locked, call find
         if ctx.accounts.vault_manager.locked {
-            return Err(error!(ErrorCode::CallDispense));
+            return Err(error!(NLLErrorCode::CallDispense));
         }
 
         // create ticket PDA data
@@ -263,19 +263,19 @@ pub mod no_loss_lottery {
 
         // if no tickets have been purchased, do not draw
         if cutoff_time == 0 {
-            return Err(ErrorCode::NoTicketsPurchased.into());
+            return Err(NLLErrorCode::NoTicketsPurchased.into());
         }
 
         // if locked, dont call draw
         if ctx.accounts.vault_manager.locked {
-            return Err(ErrorCode::CallDispense.into());
+            return Err(NLLErrorCode::CallDispense.into());
         }
 
         let now = get_current_time();
 
         // if time remaining then error
         if now < cutoff_time {
-            return Err(ErrorCode::TimeRemaining.into());
+            return Err(NLLErrorCode::TimeRemaining.into());
         }
 
         // randomly choose 6 winning numbers
@@ -299,7 +299,7 @@ pub mod no_loss_lottery {
     pub fn dispense(ctx: Context<Dispense>, numbers: [u8; 6]) -> Result<()> {
         // crank must pass in winning PDA
         if numbers != ctx.accounts.vault_manager.winning_numbers {
-            return Err(ErrorCode::PassInWinningPDA.into());
+            return Err(NLLErrorCode::PassInWinningPDA.into());
         }
 
         let now = get_current_time();
@@ -443,7 +443,7 @@ pub mod no_loss_lottery {
         // if less than n tokens, do not stake
         // wait for more tickets to be purchased
         if amount_in < ctx.accounts.vault_manager.deposit_token_reserve {
-            return Err(error!(ErrorCode::NotEnoughTokens));
+            return Err(error!(NLLErrorCode::NotEnoughTokens));
         };
 
         // subtract reserve from amount to stake
@@ -529,19 +529,6 @@ impl Default for VrfClient {
     fn default() -> Self {
         unsafe { std::mem::zeroed() }
     }
-}
-
-#[error_code]
-#[derive(Eq, PartialEq)]
-pub enum VrfErrorCode {
-    #[msg("Not a valid Switchboard VRF account")]
-    InvalidSwitchboardVrfAccount,
-    #[msg("The max result must not exceed u64")]
-    MaxResultExceedsMaximum,
-    #[msg("Current round result is empty")]
-    EmptyCurrentRoundResult,
-    #[msg("Invalid authority account provided.")]
-    InvalidAuthorityError,
 }
 
 #[derive(Accounts)]
@@ -896,7 +883,8 @@ pub struct Ticket {
 }
 
 #[error_code]
-pub enum ErrorCode {
+#[derive(Eq, PartialEq)]
+pub enum NLLErrorCode {
     #[msg("TimeRemaining")]
     TimeRemaining,
 
@@ -920,6 +908,15 @@ pub enum ErrorCode {
 
     #[msg("Invalid draw duration")]
     InvalidDrawDuration,
+
+    #[msg("Not a valid Switchboard VRF account")]
+    InvalidSwitchboardVrfAccount,
+    #[msg("The max result must not exceed u64")]
+    MaxResultExceedsMaximum,
+    #[msg("Current round result is empty")]
+    EmptyCurrentRoundResult,
+    #[msg("Invalid authority account provided.")]
+    InvalidAuthorityError,
 }
 
 fn get_current_time() -> u64 {
