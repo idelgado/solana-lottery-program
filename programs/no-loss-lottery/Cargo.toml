@@ -19,3 +19,5 @@ default = []
 anchor-lang = { version = "0.22.0", features = ["init-if-needed"] }
 anchor-spl = "0.22.0"
 spl-token-swap = { version = "2.1.0", features = ["no-entrypoint"] }
+switchboard-v2 = "0.1.6"
+bytemuck = "1.7.2"

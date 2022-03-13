@@ -31,6 +31,8 @@ export class Client {
   private program: Program<NoLossLottery>;
 
   constructor() {
+    const providerAnchor = anchor.Provider.env();
+    anchor.setProvider(providerAnchor);
     const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
     this.program = program;
   }

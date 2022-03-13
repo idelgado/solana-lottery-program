@@ -1,15 +1,20 @@
 [programs.localnet]
 no_loss_lottery = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
+[programs.devnet]
+no_loss_lottery = "81MFG833R4RxecVfeTib5xJQeH4968k1pFStgSipLoAW"
+
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+# cluster = "localnet"
+#wallet = "~/.config/solana/id.json"
+cluster = "https://api.google.devnet.solana.com"
+wallet = "./wallet.json"
 
 [test.validator]
-url = "https://api.devnet.solana.com"
+url = "https://api.google.devnet.solana.com"
 
 [[test.validator.clone]]
 address = "SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8"

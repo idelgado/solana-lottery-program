@@ -6,7 +6,7 @@ use anchor_spl::{
 };
 use spl_token_swap::instruction::{swap, Swap};
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("81MFG833R4RxecVfeTib5xJQeH4968k1pFStgSipLoAW");
 
 #[program]
 pub mod no_loss_lottery {
