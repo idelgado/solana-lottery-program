@@ -844,6 +844,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bytemuck",
+ "solana-program",
  "spl-token-swap",
  "switchboard-v2",
 ]
