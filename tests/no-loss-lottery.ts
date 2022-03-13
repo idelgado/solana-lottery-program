@@ -703,7 +703,7 @@ async function initialize(
       program.programId
     );
 
-  const [ticketMint, _ticketMintBump] =
+  const [ticketMasterEditionMint, _ticketMasterEditionMintBump] =
     await anchor.web3.PublicKey.findProgramAddress(
       [
         depositMint.toBuffer(),
@@ -715,12 +715,12 @@ async function initialize(
       program.programId
     );
 
-  const ticketMetadata = await mpl.Metadata.getPDA(ticketMint);
-  const ticketMasterEdition = await mpl.Edition.getPDA(ticketMint);
+  const ticketMasterEditionMetadata = await mpl.Metadata.getPDA(ticketMasterEditionMint);
+  const ticketMasterEdition = await mpl.Edition.getPDA(ticketMasterEditionMint);
 
-  const [ticketAta, _ticketAta] =
+  const [ticketMasterEditionAta, _ticketMasterEditionAtaBump] =
     await anchor.web3.PublicKey.findProgramAddress(
-      [ticketMint.toBuffer()],
+      [ticketMasterEditionMint.toBuffer()],
       program.programId
     );
 
@@ -738,10 +738,10 @@ async function initialize(
         depositVault: depositVault,
         yieldVault: yieldVault,
         vaultManager: vaultMgr,
-        ticketMint: ticketMint,
-        ticketMetadata: ticketMetadata,
+        ticketMasterEditionMint: ticketMasterEditionMint,
+        ticketMasterEditionMetadata: ticketMasterEditionMetadata,
         ticketMasterEdition: ticketMasterEdition,
-        ticketAta: ticketAta,
+        ticketMasterEditionAta: ticketMasterEditionAta,
         user: program.provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,

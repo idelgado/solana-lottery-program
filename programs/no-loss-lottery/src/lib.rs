@@ -32,8 +32,8 @@ pub mod no_loss_lottery {
         // create ticket master edition
 
         let ticket_mint_to_accounts = token::MintTo {
-            mint: ctx.accounts.ticket_mint.clone().to_account_info(),
-            to: ctx.accounts.ticket_ata.clone().to_account_info(),
+            mint: ctx.accounts.ticket_master_edition_mint.clone().to_account_info(),
+            to: ctx.accounts.ticket_master_edition_ata.clone().to_account_info(),
             authority: ctx.accounts.vault_manager.clone().to_account_info(),
         };
 
@@ -65,8 +65,8 @@ pub mod no_loss_lottery {
         };
 
         let create_ticket_metadata_accounts = [
-            ctx.accounts.ticket_metadata.clone(),
-            ctx.accounts.ticket_mint.clone().to_account_info(),
+            ctx.accounts.ticket_master_edition_metadata.clone(),
+            ctx.accounts.ticket_master_edition_mint.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
             ctx.accounts.user.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
@@ -77,8 +77,8 @@ pub mod no_loss_lottery {
         // create metadata account for ticket mint
         let ticket_metadata_ix = create_metadata_accounts_v2(
             ctx.accounts.metadata_program.clone().key(),
-            ctx.accounts.ticket_metadata.clone().key(),
-            ctx.accounts.ticket_mint.clone().to_account_info().key(),
+            ctx.accounts.ticket_master_edition_metadata.clone().key(),
+            ctx.accounts.ticket_master_edition_mint.clone().to_account_info().key(),
             ctx.accounts.vault_manager.clone().key(),
             ctx.accounts.user.clone().key(),
             ctx.accounts.vault_manager.clone().key(),
@@ -107,8 +107,8 @@ pub mod no_loss_lottery {
 
         let create_ticket_master_edition_accounts = [
             ctx.accounts.ticket_master_edition.clone(),
-            ctx.accounts.ticket_metadata.clone(),
-            ctx.accounts.ticket_mint.clone().to_account_info(),
+            ctx.accounts.ticket_master_edition_metadata.clone(),
+            ctx.accounts.ticket_master_edition_mint.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
             ctx.accounts.user.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
@@ -121,10 +121,10 @@ pub mod no_loss_lottery {
         let ticket_master_edition_ix = create_master_edition_v3(
             ctx.accounts.metadata_program.clone().key(),
             ctx.accounts.ticket_master_edition.clone().key(),
-            ctx.accounts.ticket_mint.clone().key(),
+            ctx.accounts.ticket_master_edition_mint.clone().key(),
             ctx.accounts.vault_manager.clone().key(),
             ctx.accounts.vault_manager.clone().key(),
-            ctx.accounts.ticket_metadata.clone().key(),
+            ctx.accounts.ticket_master_edition_metadata.clone().key(),
             ctx.accounts.user.clone().key(),
             Some(0),
         );
@@ -641,11 +641,11 @@ pub struct Initialize<'info> {
         mint::decimals = 0,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref(), vault_manager.key().as_ref()],
         bump)]
-    pub ticket_mint: Box<Account<'info, token::Mint>>,
+    pub ticket_master_edition_mint: Box<Account<'info, token::Mint>>,
 
     /// CHECK: todo
     #[account(mut)]
-    pub ticket_metadata: AccountInfo<'info>,
+    pub ticket_master_edition_metadata: AccountInfo<'info>,
 
     /// CHECK: todo
     #[account(mut)]
@@ -653,10 +653,10 @@ pub struct Initialize<'info> {
 
     #[account(init,
         payer = user,
-        token::mint = ticket_mint,
+        token::mint = ticket_master_edition_mint,
         token::authority = vault_manager,
-        seeds = [ticket_mint.key().as_ref()], bump)]
-    pub ticket_ata: Account<'info, token::TokenAccount>,
+        seeds = [ticket_master_edition_mint.key().as_ref()], bump)]
+    pub ticket_master_edition_ata: Account<'info, token::TokenAccount>,
 
     #[account(mut)]
     pub user: Signer<'info>,
