@@ -8,8 +8,10 @@ pub use switchboard_v2::VrfAccountData;
 pub struct UpdateResult<'info> {
     #[account(mut)]
     pub state: AccountLoader<'info, VrfClient>,
-    /// CHECK: TODO 
+    /// CHECK: TODO
     pub vrf: AccountInfo<'info>,
+    /// CHECK: TODO
+    pub bar: AccountInfo<'info>,
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]

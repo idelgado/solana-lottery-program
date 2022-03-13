@@ -36,6 +36,8 @@ export async function createVrfAccount(argv: any): Promise<void> {
     rpcUrl
   );
 
+  const bar = anchor.web3.Keypair.generate();
+
   const vrfSecret = keypair
     ? loadKeypair(keypair)
     : anchor.web3.Keypair.generate();
@@ -69,6 +71,7 @@ export async function createVrfAccount(argv: any): Promise<void> {
       // ensure all accounts in updateResult are populated
       { pubkey: stateAccount.publicKey, isSigner: false, isWritable: true },
       { pubkey: vrfSecret.publicKey, isSigner: false, isWritable: false },
+      { pubkey: bar.publicKey, isSigner: false, isWritable: false },
     ],
     ixData: ixCoder.encode("updateResult", ""), // pass any params for instruction here
   };
