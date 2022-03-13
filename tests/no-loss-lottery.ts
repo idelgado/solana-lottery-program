@@ -703,7 +703,7 @@ async function initialize(
       program.programId
     );
 
-  const [collectionMint, _collectionMintBump] =
+  const [ticketMint, _ticketMintBump] =
     await anchor.web3.PublicKey.findProgramAddress(
       [
         depositMint.toBuffer(),
@@ -715,15 +715,14 @@ async function initialize(
       program.programId
     );
 
-  const collectionMetadata = await mpl.Metadata.getPDA(collectionMint);
-  const collectionMasterEdition = await mpl.Edition.getPDA(collectionMint);
+  const ticketMetadata = await mpl.Metadata.getPDA(ticketMint);
+  const ticketMasterEdition = await mpl.Edition.getPDA(ticketMint);
 
-  const [collectionAta, _collectionAtaBump] =
+  const [ticketAta, _ticketAta] =
     await anchor.web3.PublicKey.findProgramAddress(
-      [collectionMint.toBuffer()],
+      [ticketMint.toBuffer()],
       program.programId
     );
-  console.log("collection accounts created");
 
   // ticket price in tokens
   const ticketPrice = new anchor.BN(1);
@@ -739,10 +738,10 @@ async function initialize(
         depositVault: depositVault,
         yieldVault: yieldVault,
         vaultManager: vaultMgr,
-        collectionMint: collectionMint,
-        collectionMetadata: collectionMetadata,
-        collectionMasterEdition: collectionMasterEdition,
-        collectionAta: collectionAta,
+        ticketMint: ticketMint,
+        ticketMetadata: ticketMetadata,
+        ticketMasterEdition: ticketMasterEdition,
+        ticketAta: ticketAta,
         user: program.provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: spl.TOKEN_PROGRAM_ID,

@@ -5,9 +5,7 @@ use anchor_spl::{
     associated_token,
     token::{self},
 };
-use mpl_token_metadata::instruction::{
-    create_master_edition_v3, create_metadata_accounts_v2, set_and_verify_collection,
-};
+use mpl_token_metadata::instruction::{create_master_edition_v3, create_metadata_accounts_v2};
 use mpl_token_metadata::state::DataV2;
 use spl_token_swap::instruction::{swap, Swap};
 
@@ -31,17 +29,19 @@ pub mod no_loss_lottery {
             return Err(error!(ErrorCode::InvalidDrawDuration));
         }
 
-        let collection_mint_to_accounts = token::MintTo {
-            mint: ctx.accounts.collection_mint.clone().to_account_info(),
-            to: ctx.accounts.collection_ata.clone().to_account_info(),
+        // create ticket master edition
+
+        let ticket_mint_to_accounts = token::MintTo {
+            mint: ctx.accounts.ticket_mint.clone().to_account_info(),
+            to: ctx.accounts.ticket_ata.clone().to_account_info(),
             authority: ctx.accounts.vault_manager.clone().to_account_info(),
         };
 
-        // mint master edition collection token to vault manager collection ata
+        // mint master edition ticket token to vault manager ticket ata
         token::mint_to(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
-                collection_mint_to_accounts,
+                ticket_mint_to_accounts,
                 &[&[
                     ctx.accounts.deposit_mint.clone().key().as_ref(),
                     ctx.accounts.yield_mint.clone().key().as_ref(),
@@ -54,7 +54,7 @@ pub mod no_loss_lottery {
         )?;
 
         // metadata params
-        let collection_data = DataV2 {
+        let ticket_data = DataV2 {
             name: "test-nft1".to_string(),
             symbol: "TEST".to_string(),
             uri: "google.com".to_string(),
@@ -64,9 +64,9 @@ pub mod no_loss_lottery {
             uses: None,
         };
 
-        let create_collection_metadata_accounts = [
-            ctx.accounts.collection_metadata.clone(),
-            ctx.accounts.collection_mint.clone().to_account_info(),
+        let create_ticket_metadata_accounts = [
+            ctx.accounts.ticket_metadata.clone(),
+            ctx.accounts.ticket_mint.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
             ctx.accounts.user.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
@@ -74,28 +74,28 @@ pub mod no_loss_lottery {
             ctx.accounts.rent.to_account_info(),
         ];
 
-        // create metadata account for collection mint
-        let collection_metadata_ix = create_metadata_accounts_v2(
+        // create metadata account for ticket mint
+        let ticket_metadata_ix = create_metadata_accounts_v2(
             ctx.accounts.metadata_program.clone().key(),
-            ctx.accounts.collection_metadata.clone().key(),
-            ctx.accounts.collection_mint.clone().to_account_info().key(),
+            ctx.accounts.ticket_metadata.clone().key(),
+            ctx.accounts.ticket_mint.clone().to_account_info().key(),
             ctx.accounts.vault_manager.clone().key(),
             ctx.accounts.user.clone().key(),
             ctx.accounts.vault_manager.clone().key(),
-            collection_data.name,
-            collection_data.symbol,
-            collection_data.uri,
-            collection_data.creators,
-            collection_data.seller_fee_basis_points,
+            ticket_data.name,
+            ticket_data.symbol,
+            ticket_data.uri,
+            ticket_data.creators,
+            ticket_data.seller_fee_basis_points,
             false,
             false,
-            collection_data.collection,
-            collection_data.uses,
+            ticket_data.collection,
+            ticket_data.uses,
         );
 
         invoke_signed(
-            &collection_metadata_ix,
-            &create_collection_metadata_accounts,
+            &ticket_metadata_ix,
+            &create_ticket_metadata_accounts,
             &[&[
                 ctx.accounts.deposit_mint.clone().key().as_ref(),
                 ctx.accounts.yield_mint.clone().key().as_ref(),
@@ -105,10 +105,10 @@ pub mod no_loss_lottery {
             ]],
         )?;
 
-        let create_collection_master_edition_accounts = [
-            ctx.accounts.collection_master_edition.clone(),
-            ctx.accounts.collection_metadata.clone(),
-            ctx.accounts.collection_mint.clone().to_account_info(),
+        let create_ticket_master_edition_accounts = [
+            ctx.accounts.ticket_master_edition.clone(),
+            ctx.accounts.ticket_metadata.clone(),
+            ctx.accounts.ticket_mint.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
             ctx.accounts.user.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
@@ -116,22 +116,22 @@ pub mod no_loss_lottery {
             ctx.accounts.token_program.clone().to_account_info(),
         ];
 
-        // create master edition account for collection mint
+        // create master edition account for ticket mint
         // max_supply of 0 = unique
-        let collection_master_edition_ix = create_master_edition_v3(
+        let ticket_master_edition_ix = create_master_edition_v3(
             ctx.accounts.metadata_program.clone().key(),
-            ctx.accounts.collection_master_edition.clone().key(),
-            ctx.accounts.collection_mint.clone().key(),
+            ctx.accounts.ticket_master_edition.clone().key(),
+            ctx.accounts.ticket_mint.clone().key(),
             ctx.accounts.vault_manager.clone().key(),
             ctx.accounts.vault_manager.clone().key(),
-            ctx.accounts.collection_metadata.clone().key(),
+            ctx.accounts.ticket_metadata.clone().key(),
             ctx.accounts.user.clone().key(),
             Some(0),
         );
 
         invoke_signed(
-            &collection_master_edition_ix,
-            &create_collection_master_edition_accounts,
+            &ticket_master_edition_ix,
+            &create_ticket_master_edition_accounts,
             &[&[
                 ctx.accounts.deposit_mint.clone().key().as_ref(),
                 ctx.accounts.yield_mint.clone().key().as_ref(),
@@ -641,22 +641,22 @@ pub struct Initialize<'info> {
         mint::decimals = 0,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref(), vault_manager.key().as_ref()],
         bump)]
-    pub collection_mint: Box<Account<'info, token::Mint>>,
+    pub ticket_mint: Box<Account<'info, token::Mint>>,
 
     /// CHECK: todo
     #[account(mut)]
-    pub collection_metadata: AccountInfo<'info>,
+    pub ticket_metadata: AccountInfo<'info>,
 
     /// CHECK: todo
     #[account(mut)]
-    pub collection_master_edition: AccountInfo<'info>,
+    pub ticket_master_edition: AccountInfo<'info>,
 
     #[account(init,
         payer = user,
-        token::mint = collection_mint,
+        token::mint = ticket_mint,
         token::authority = vault_manager,
-        seeds = [collection_mint.key().as_ref()], bump)]
-    pub collection_ata: Account<'info, token::TokenAccount>,
+        seeds = [ticket_mint.key().as_ref()], bump)]
+    pub ticket_ata: Account<'info, token::TokenAccount>,
 
     #[account(mut)]
     pub user: Signer<'info>,
