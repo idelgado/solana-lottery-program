@@ -5,7 +5,10 @@ use anchor_spl::{
     associated_token,
     token::{self},
 };
-use mpl_token_metadata::instruction::{create_master_edition_v3, create_metadata_accounts_v2};
+use mpl_token_metadata::instruction::{
+    create_master_edition_v3, create_metadata_accounts_v2,
+    mint_new_edition_from_master_edition_via_token,
+};
 use mpl_token_metadata::state::DataV2;
 use spl_token_swap::instruction::{swap, Swap};
 
@@ -32,8 +35,16 @@ pub mod no_loss_lottery {
         // create ticket master edition
 
         let ticket_mint_to_accounts = token::MintTo {
-            mint: ctx.accounts.ticket_master_edition_mint.clone().to_account_info(),
-            to: ctx.accounts.ticket_master_edition_ata.clone().to_account_info(),
+            mint: ctx
+                .accounts
+                .ticket_master_edition_mint
+                .clone()
+                .to_account_info(),
+            to: ctx
+                .accounts
+                .ticket_master_edition_ata
+                .clone()
+                .to_account_info(),
             authority: ctx.accounts.vault_manager.clone().to_account_info(),
         };
 
@@ -66,7 +77,10 @@ pub mod no_loss_lottery {
 
         let create_ticket_metadata_accounts = [
             ctx.accounts.ticket_master_edition_metadata.clone(),
-            ctx.accounts.ticket_master_edition_mint.clone().to_account_info(),
+            ctx.accounts
+                .ticket_master_edition_mint
+                .clone()
+                .to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
             ctx.accounts.user.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
@@ -78,7 +92,11 @@ pub mod no_loss_lottery {
         let ticket_metadata_ix = create_metadata_accounts_v2(
             ctx.accounts.metadata_program.clone().key(),
             ctx.accounts.ticket_master_edition_metadata.clone().key(),
-            ctx.accounts.ticket_master_edition_mint.clone().to_account_info().key(),
+            ctx.accounts
+                .ticket_master_edition_mint
+                .clone()
+                .to_account_info()
+                .key(),
             ctx.accounts.vault_manager.clone().key(),
             ctx.accounts.user.clone().key(),
             ctx.accounts.vault_manager.clone().key(),
@@ -108,7 +126,10 @@ pub mod no_loss_lottery {
         let create_ticket_master_edition_accounts = [
             ctx.accounts.ticket_master_edition.clone(),
             ctx.accounts.ticket_master_edition_metadata.clone(),
-            ctx.accounts.ticket_master_edition_mint.clone().to_account_info(),
+            ctx.accounts
+                .ticket_master_edition_mint
+                .clone()
+                .to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
             ctx.accounts.user.clone().to_account_info(),
             ctx.accounts.vault_manager.clone().to_account_info(),
@@ -126,7 +147,7 @@ pub mod no_loss_lottery {
             ctx.accounts.vault_manager.clone().key(),
             ctx.accounts.ticket_master_edition_metadata.clone().key(),
             ctx.accounts.user.clone().key(),
-            Some(0),
+            None,
         );
 
         invoke_signed(
@@ -151,6 +172,7 @@ pub mod no_loss_lottery {
         vault_mgr.yield_mint = ctx.accounts.yield_mint.clone().key();
         vault_mgr.yield_vault = ctx.accounts.yield_vault.clone().key();
         vault_mgr.deposit_token_reserve = 10 * ticket_price;
+        vault_mgr.circulating_supply = 0;
 
         Ok(())
     }
@@ -177,12 +199,11 @@ pub mod no_loss_lottery {
         }
 
         // create ticket PDA data
-        let ticket_account = &mut ctx.accounts.ticket;
+        let ticket_account = &mut ctx.accounts.ticket_data;
         ticket_account.deposit_mint = ctx.accounts.deposit_mint.clone().key();
         ticket_account.yield_mint = ctx.accounts.yield_mint.clone().key();
         ticket_account.vault = ctx.accounts.deposit_vault.clone().key();
-        ticket_account.tickets = ctx.accounts.tickets.clone().key();
-        ticket_account.owner = ctx.accounts.user.key();
+        ticket_account.ticket_mint = ctx.accounts.ticket_mint.clone().key();
         ticket_account.numbers = numbers;
 
         // transfer tokens from user wallet to vault
@@ -200,28 +221,62 @@ pub mod no_loss_lottery {
             ctx.accounts.vault_manager.clone().ticket_price,
         )?;
 
-        // mint tickets to vault
-        let mint_to_accounts = token::MintTo {
-            mint: ctx.accounts.tickets.clone().to_account_info(),
-            to: ctx.accounts.user_tickets_ata.clone().to_account_info(),
-            authority: ctx.accounts.vault_manager.clone().to_account_info(),
-        };
+        // increment circulating supply
+        ctx.accounts.vault_manager.circulating_supply += 1;
 
-        // mint initial ticket supply to the vault tickets ata
-        token::mint_to(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.clone().to_account_info(),
-                mint_to_accounts,
-                &[&[
-                    ctx.accounts.deposit_mint.clone().key().as_ref(),
-                    ctx.accounts.yield_mint.clone().key().as_ref(),
-                    ctx.accounts.deposit_vault.clone().key().as_ref(),
-                    ctx.accounts.yield_vault.clone().key().as_ref(),
-                    &[*ctx.bumps.get("vault_manager").unwrap()],
-                ]],
-            ),
+        let mint_new_edition_accounts = [
+            ctx.accounts.ticket_metadata.clone().to_account_info(),
+            ctx.accounts.ticket_edition.clone().to_account_info(),
+            ctx.accounts.ticket_master_edition.clone().to_account_info(),
+            ctx.accounts.ticket_mint.clone().to_account_info(),
+            ctx.accounts.ticket_edition_mark.clone().to_account_info(),
+            ctx.accounts.vault_manager.clone().to_account_info(),
+            ctx.accounts.user.clone().to_account_info(),
+            ctx.accounts.vault_manager.clone().to_account_info(),
+            ctx.accounts
+                .ticket_master_edition_ata
+                .clone()
+                .to_account_info(),
+            ctx.accounts.vault_manager.clone().to_account_info(),
+            ctx.accounts
+                .ticket_master_edition_metadata
+                .clone()
+                .to_account_info(),
+            ctx.accounts.token_program.clone().to_account_info(),
+            ctx.accounts.system_program.clone().to_account_info(),
+            ctx.accounts.rent.clone().to_account_info(),
+        ];
+
+        // create new edition from master edition ticket
+        let mint_new_edition_ix = mint_new_edition_from_master_edition_via_token(
+            ctx.accounts.metadata_program.clone().key(),
+            ctx.accounts.ticket_metadata.clone().key(),
+            ctx.accounts.ticket_edition.clone().key(),
+            ctx.accounts.ticket_master_edition.clone().key(),
+            ctx.accounts.ticket_mint.clone().key(),
+            ctx.accounts.vault_manager.clone().key(),
+            ctx.accounts.user.clone().key(),
+            ctx.accounts.vault_manager.clone().key(),
+            ctx.accounts.ticket_master_edition_ata.clone().key(),
+            ctx.accounts.vault_manager.clone().key(),
+            ctx.accounts.ticket_master_edition_metadata.clone().key(),
+            ctx.accounts.ticket_mint.clone().key(),
+            //ctx.accounts.vault_manager.circulating_supply,
             1,
+        );
+
+        invoke_signed(
+            &mint_new_edition_ix,
+            &mint_new_edition_accounts,
+            &[&[
+                ctx.accounts.deposit_mint.clone().key().as_ref(),
+                ctx.accounts.yield_mint.clone().key().as_ref(),
+                ctx.accounts.deposit_vault.clone().key().as_ref(),
+                ctx.accounts.yield_vault.clone().key().as_ref(),
+                &[*ctx.bumps.get("vault_manager").unwrap()],
+            ]],
         )
+        .map_err(|e| e.into())
     }
 
     // redeem tickets for deposited tokens
@@ -651,11 +706,7 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub ticket_master_edition: AccountInfo<'info>,
 
-    #[account(init,
-        payer = user,
-        token::mint = ticket_master_edition_mint,
-        token::authority = vault_manager,
-        seeds = [ticket_master_edition_mint.key().as_ref()], bump)]
+    #[account(mut)]
     pub ticket_master_edition_ata: Account<'info, token::TokenAccount>,
 
     #[account(mut)]
@@ -688,26 +739,52 @@ pub struct Buy<'info> {
         has_one = deposit_mint,
         has_one = yield_vault,
         has_one = yield_mint,
-        has_one = tickets,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref()],
         bump)]
     pub vault_manager: Box<Account<'info, VaultManager>>,
 
+    #[account(mut,
+        seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref(), vault_manager.key().as_ref()],
+        bump)]
+    pub ticket_master_edition_mint: Box<Account<'info, token::Mint>>,
+
+    /// CHECK: todo
     #[account(mut)]
-    pub tickets: Account<'info, token::Mint>,
+    pub ticket_master_edition_metadata: AccountInfo<'info>,
+
+    /// CHECK: todo
+    #[account(mut)]
+    pub ticket_master_edition: AccountInfo<'info>,
+
+    #[account(mut, seeds = [ticket_master_edition_mint.key().as_ref()], bump)]
+    pub ticket_master_edition_ata: Box<Account<'info, token::TokenAccount>>,
+
+    #[account(init,
+        payer = user,
+        mint::authority = vault_manager,
+        mint::decimals = 0,
+        seeds = [&numbers, ticket_master_edition_mint.key().as_ref()],
+        bump)]
+    pub ticket_mint: Account<'info, token::Mint>,
+
+    /// CHECK: todo
+    #[account(mut)]
+    pub ticket_metadata: AccountInfo<'info>,
+
+    /// CHECK: todo
+    #[account(mut)]
+    pub ticket_edition: AccountInfo<'info>,
+
+    /// CHECK: todo
+    #[account(mut)]
+    pub ticket_edition_mark: AccountInfo<'info>,
 
     #[account(init,
         payer = user,
         seeds = [&numbers, vault_manager.key().as_ref()],
         bump,
     )]
-    pub ticket: Box<Account<'info, Ticket>>,
-
-    #[account(init_if_needed,
-        payer = user,
-        associated_token::mint = tickets,
-        associated_token::authority = user)]
-    pub user_tickets_ata: Box<Account<'info, token::TokenAccount>>,
+    pub ticket_data: Box<Account<'info, Ticket>>,
 
     #[account(mut)]
     pub user: Signer<'info>,
@@ -718,6 +795,7 @@ pub struct Buy<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, token::Token>,
     pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
+    pub metadata_program: Program<'info, TokenMetadata>,
     pub rent: Sysvar<'info, Rent>,
 }
 
@@ -961,6 +1039,7 @@ pub struct VaultManager {
     pub previous_winning_numbers: [u8; 6],
     pub locked: bool, // when draw is called, lock the program until dispense is called
     pub deposit_token_reserve: u64, // amount of tokens to keep in deposit_vault at all times
+    pub circulating_supply: u64, // number of tickets
 }
 
 #[account]
@@ -969,8 +1048,7 @@ pub struct Ticket {
     pub deposit_mint: Pubkey,
     pub yield_mint: Pubkey,
     pub vault: Pubkey,
-    pub tickets: Pubkey,
-    pub owner: Pubkey,
+    pub ticket_mint: Pubkey,
     pub numbers: [u8; 6],
 }
 
