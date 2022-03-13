@@ -2,7 +2,7 @@
 no_loss_lottery = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
 [programs.devnet]
-no_loss_lottery = "81MFG833R4RxecVfeTib5xJQeH4968k1pFStgSipLoAW"
+no_loss_lottery = "6mn7W95E1C3SPn8KHsLXKsi2UhpEkvZhZLZ6QAZd5Dc9"
 
 [registry]
 url = "https://anchor.projectserum.com"
