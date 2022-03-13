@@ -5,10 +5,15 @@
     "@solana/spl-token": "^0.2.0",
     "@solana/spl-token-swap": "^0.1.2",
     "dotenv": "^16.0.0",
-    "envfile": "^6.17.0"
+    "envfile": "^6.17.0",
+    "chalk": "^4.1.2",
+    "readline-sync": "^1.4.10",
+    "wait-for-event": "^2.0.1",
+    "yargs": "^17.3.1"
   },
   "devDependencies": {
     "@types/mocha": "^9.0.0",
+    "@types/yargs": "^17.0.8",
     "chai": "^4.3.4",
     "mocha": "^9.0.3",
     "ts-mocha": "^8.0.0",
