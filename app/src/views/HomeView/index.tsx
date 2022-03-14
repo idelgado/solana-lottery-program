@@ -332,15 +332,17 @@ export const HomeView: FC = ({}) => {
                        minutes: timeValues.minutes,
                        seconds: timeValues.seconds };
 
-      console.log("winning numbers %s", vaultManagerAccount.winningNumbers);
-      console.log("previous numbers %s", vaultManagerAccount.previousWinningNumbers);
+      // console.log("winning numbers %d", vaultManagerAccount.winningNumbers);
+      // console.log("previous numbers %d", vaultManagerAccount.previousWinningNumbers);
 
       let newDashboard = [];
 
       let drawing = "N/A";
+      /*
       if (vaultManagerAccount.previousWinningNumbers.toString() !== "0,0,0,0,0,0") {
         drawing = vaultManagerAccount.previousWinningNumbers.join(' ');
       }
+      */
       newDashboard = [
         depositTokenBalance.value.amount,
         yieldTokenBalance.value.amount,

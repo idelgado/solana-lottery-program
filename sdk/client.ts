@@ -409,7 +409,7 @@ export class Client {
       OWNER_WITHDRAW_FEE_DENOMINATOR,
       HOST_FEE_NUMERATOR,
       HOST_FEE_DENOMINATOR,
-      tokenSwap.CurveType.ConstantProduct
+      new tokenSwap.Numberu64(tokenSwap.CurveType.ConstantProduct)
     );
 
     const accounts = {

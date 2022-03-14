@@ -62,8 +62,11 @@ pub mod no_loss_lottery {
         let d4: u8 = (&formatted_numbers[4..5]).parse().unwrap();
         let d5: u8 = (&formatted_numbers[5..6]).parse().unwrap();
 
-        ctx.accounts.vault_manager.previous_winning_numbers = [d0, d1, d2, d3, d4, d5];
-        ctx.accounts.vault_manager.winning_numbers = [d0, d1, d2, d3, d4, d5];
+        let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
+        vault_manager.previous_winning_numbers = [d0, d1, d2, d3, d4, d5];
+        vault_manager.winning_numbers = [d0, d1, d2, d3, d4, d5];
+
+        vault_manager.randomness = false;
 
         Ok(())
  
@@ -71,7 +74,7 @@ pub mod no_loss_lottery {
 
     #[access_control(ctx.accounts.validate(&ctx, &params))]
     pub fn request_result(ctx: Context<RequestResult>, params: RequestResultParams) -> Result<()> {
-        RequestResult::actuate(&ctx, &params)
+         RequestResult::actuate(&ctx, &params)
     }
 
     pub fn initialize(
@@ -90,7 +93,7 @@ pub mod no_loss_lottery {
         }
 
         // set vault manager config
-        let vault_mgr = &mut ctx.accounts.vault_manager;
+        let vault_mgr = &mut ctx.accounts.vault_manager.load_init()?;
         vault_mgr.draw_duration = draw_duration;
         vault_mgr.cutoff_time = 0;
         vault_mgr.ticket_price = ticket_price;
@@ -105,14 +108,15 @@ pub mod no_loss_lottery {
     }
 
     pub fn buy(ctx: Context<Buy>, numbers: [u8; 6]) -> Result<()> {
+        let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
         // if cutoff_time is 0, drawing has never started
-        if ctx.accounts.vault_manager.cutoff_time == 0 {
+        if vault_manager.cutoff_time == 0 {
             // get current timestamp from Clock program
             let now = get_current_time();
 
             // set last draw time to now
-            ctx.accounts.vault_manager.cutoff_time =
-                now as u64 + ctx.accounts.vault_manager.draw_duration;
+            vault_manager.cutoff_time =
+                now as u64 + vault_manager.draw_duration;
         };
 
         // do not allow user to pass in zeroed array of numbers
@@ -121,7 +125,7 @@ pub mod no_loss_lottery {
         }
 
         // if buy is locked, call find
-        if ctx.accounts.vault_manager.locked {
+        if vault_manager.locked {
             return Err(error!(NLLErrorCode::CallDispense));
         }
 
@@ -146,7 +150,7 @@ pub mod no_loss_lottery {
                 ctx.accounts.token_program.clone().to_account_info(),
                 transfer_accounts,
             ),
-            ctx.accounts.vault_manager.clone().ticket_price,
+            vault_manager.clone().ticket_price,
         )?;
 
         // mint tickets to vault
@@ -179,7 +183,8 @@ pub mod no_loss_lottery {
 
         // check if not enough tokens in deposit_vault for redemption, do a swap from yield to deposit vault
         let deposit_vault_amount = ctx.accounts.deposit_vault.amount;
-        let ticket_price = ctx.accounts.vault_manager.ticket_price;
+        let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
+        let ticket_price = vault_manager.ticket_price;
         if deposit_vault_amount < ticket_price {
             // double it to make sure we can get our minimum_amount_out
             // TODO: what to do if we dont have enough in yield_vault?
@@ -299,7 +304,8 @@ pub mod no_loss_lottery {
     }
 
     pub fn draw(ctx: Context<Draw>) -> Result<()> {
-        let cutoff_time = ctx.accounts.vault_manager.cutoff_time;
+        let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
+        let cutoff_time = vault_manager.cutoff_time;
 
         // if no tickets have been purchased, do not draw
         if cutoff_time == 0 {
@@ -307,8 +313,8 @@ pub mod no_loss_lottery {
         }
 
         // if locked, dont call draw
-        if ctx.accounts.vault_manager.locked {
-            return Err(NLLErrorCode::CallDispense.into());
+        if vault_manager.randomness {
+            return Err(NLLErrorCode::AcquiringRandomness.into());
         }
 
         let now = get_current_time();
@@ -318,17 +324,8 @@ pub mod no_loss_lottery {
             return Err(NLLErrorCode::TimeRemaining.into());
         }
 
-        // randomly choose 6 winning numbers
-        let numbers: [u8; 6] = [1, 2, 3, 4, 5, 6];
-
-        // set numbers in vault_manager account
-        ctx.accounts.vault_manager.winning_numbers = numbers;
-
-        // store numbers for frontend to query
-        ctx.accounts.vault_manager.previous_winning_numbers = numbers;
-
         // locked `buy` function until `find` called
-        ctx.accounts.vault_manager.locked = true;
+        vault_manager.randomness = true;
         Ok(())
     }
 
@@ -337,21 +334,22 @@ pub mod no_loss_lottery {
     // if PDA exists, send prize
     // if not error
     pub fn dispense(ctx: Context<Dispense>, numbers: [u8; 6]) -> Result<()> {
+        let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
         // crank must pass in winning PDA
-        if numbers != ctx.accounts.vault_manager.winning_numbers {
+        if numbers != vault_manager.winning_numbers {
             return Err(NLLErrorCode::PassInWinningPDA.into());
         }
 
         let now = get_current_time();
 
         // set next cutoff time
-        ctx.accounts.vault_manager.cutoff_time = now + ctx.accounts.vault_manager.draw_duration;
+        vault_manager.cutoff_time = now + vault_manager.draw_duration;
 
         // unlock buy tickets
-        ctx.accounts.vault_manager.locked = false;
+        vault_manager.locked = false;
 
         // zero out winning numbers
-        ctx.accounts.vault_manager.winning_numbers = [0u8; 6];
+        vault_manager.winning_numbers = [0u8; 6];
 
         // if numbers are zeroed out this means this account was initialized in this instruction
         // no winner found
@@ -443,11 +441,13 @@ pub mod no_loss_lottery {
             Err(e) => return Err(e.into()),
         };
 
+        let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
+
         // calculate winner prize
         // TODO: add our fee
         let prize_amount = calculate_prize(
             ctx.accounts.tickets.supply,
-            ctx.accounts.vault_manager.ticket_price,
+            vault_manager.ticket_price,
             ctx.accounts.deposit_vault.amount,
         );
 
@@ -478,16 +478,17 @@ pub mod no_loss_lottery {
     // convert deposit_mint tokens into yield_mint tokens
     // call with a crank
     pub fn stake(ctx: Context<Stake>) -> Result<()> {
+        let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
         let mut amount_in = ctx.accounts.deposit_vault.amount;
 
         // if less than n tokens, do not stake
         // wait for more tickets to be purchased
-        if amount_in < ctx.accounts.vault_manager.deposit_token_reserve {
+        if amount_in < vault_manager.deposit_token_reserve {
             return Err(error!(NLLErrorCode::NotEnoughTokens));
         };
 
         // subtract reserve from amount to stake
-        amount_in = amount_in - ctx.accounts.vault_manager.deposit_token_reserve;
+        amount_in = amount_in - vault_manager.deposit_token_reserve;
 
         // tell the vault manager to approve the user calling this function to swap
         let approve_accounts = token::Approve {
@@ -597,7 +598,7 @@ pub struct Initialize<'info> {
         payer = user,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref()],
         bump)]
-    pub vault_manager: Account<'info, VaultManager>,
+    pub vault_manager: AccountLoader<'info, VaultManager>,
 
     #[account(init,
         payer = user,
@@ -639,7 +640,7 @@ pub struct Buy<'info> {
         has_one = tickets,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref()],
         bump)]
-    pub vault_manager: Box<Account<'info, VaultManager>>,
+    pub vault_manager: AccountLoader<'info, VaultManager>,
 
     #[account(mut)]
     pub tickets: Account<'info, token::Mint>,
@@ -691,7 +692,7 @@ pub struct Redeem<'info> {
         has_one = tickets,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref()],
         bump)]
-    pub vault_manager: Box<Account<'info, VaultManager>>,
+    pub vault_manager: AccountLoader<'info, VaultManager>,
 
     #[account(mut)]
     pub tickets: Account<'info, token::Mint>,
@@ -761,7 +762,7 @@ pub struct Draw<'info> {
         has_one = tickets,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref()],
         bump)]
-    pub vault_manager: Box<Account<'info, VaultManager>>,
+    pub vault_manager: AccountLoader<'info, VaultManager>,
 
     #[account(mut)]
     pub tickets: Account<'info, token::Mint>,
@@ -797,7 +798,7 @@ pub struct Dispense<'info> {
         has_one = tickets,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref()],
         bump)]
-    pub vault_manager: Box<Account<'info, VaultManager>>,
+    pub vault_manager: AccountLoader<'info, VaultManager>,
 
     #[account(mut)]
     pub tickets: Account<'info, token::Mint>,
@@ -860,7 +861,7 @@ pub struct Stake<'info> {
         has_one = yield_mint,
         seeds = [deposit_mint.key().as_ref(), yield_mint.key().as_ref(), deposit_vault.key().as_ref(), yield_vault.key().as_ref()],
         bump)]
-    pub vault_manager: Box<Account<'info, VaultManager>>,
+    pub vault_manager: AccountLoader<'info, VaultManager>,
 
     // swap program token accounts
     #[account(mut)]
@@ -894,8 +895,7 @@ pub struct Stake<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-#[account]
-#[derive(Default)]
+#[account(zero_copy)]
 pub struct VaultManager {
     pub deposit_mint: Pubkey,
     pub deposit_vault: Pubkey,
@@ -907,8 +907,14 @@ pub struct VaultManager {
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
     pub previous_winning_numbers: [u8; 6],
+    pub randomness: bool, // when a random number is requested set this to true until randomness is returned 
     pub locked: bool, // when draw is called, lock the program until dispense is called
     pub deposit_token_reserve: u64, // amount of tokens to keep in deposit_vault at all times
+}
+impl Default for VaultManager {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
 }
 
 #[account]
@@ -927,6 +933,9 @@ pub struct Ticket {
 pub enum NLLErrorCode {
     #[msg("TimeRemaining")]
     TimeRemaining,
+
+    #[msg("Acquiring randomness")]
+    AcquiringRandomness,
 
     #[msg("Must call Dispense")]
     CallDispense,

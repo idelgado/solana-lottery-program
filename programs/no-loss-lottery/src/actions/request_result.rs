@@ -40,6 +40,8 @@ pub struct RequestResult<'info> {
     #[account(mut, constraint = payer_wallet.owner == payer_authority.key())]
     pub payer_wallet: Account<'info, TokenAccount>,
     /// CHECK: TODO
+    pub vault_manager: AccountLoader<'info, VaultManager>,
+    /// CHECK: TODO
     #[account(signer)]
     pub payer_authority: AccountInfo<'info>,
     /// CHECK: TODO
@@ -65,6 +67,26 @@ impl RequestResult<'_> {
     }
 
     pub fn actuate(ctx: &Context<Self>, params: &RequestResultParams) -> Result<()> {
+        let vault_manager = &ctx.accounts.vault_manager.load()?;
+        let cutoff_time = vault_manager.cutoff_time;
+
+        // if no tickets have been purchased, do not draw
+        if cutoff_time == 0 {
+            return Err(NLLErrorCode::NoTicketsPurchased.into());
+        }
+
+        // if locked, dont call draw
+        if vault_manager.randomness {
+            return Err(NLLErrorCode::AcquiringRandomness.into());
+        }
+
+        let now = get_current_time();
+
+        // if time remaining then error
+        if now < cutoff_time {
+            return Err(NLLErrorCode::TimeRemaining.into());
+        }
+
         let switchboard_program = ctx.accounts.switchboard_program.to_account_info();
 
         let vrf_request_randomness = VrfRequestRandomness {

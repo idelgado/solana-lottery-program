@@ -12,7 +12,7 @@ pub struct UpdateResult<'info> {
     pub vrf: AccountInfo<'info>,
     /// CHECK: TODO
     #[account(mut)]
-    pub vault_manager: Account<'info, VaultManager>,
+    pub vault_manager: AccountLoader<'info, VaultManager>,
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
