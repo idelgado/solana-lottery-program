@@ -36,7 +36,7 @@ async function main(): Promise<void> {
         yarg.option("maxResult", {
           type: "string",
           describe: "maximum result returned from vrf buffer",
-          default: "256000",
+          default: "999999",
         });
         yarg.option("no-example", {
           type: "boolean",
