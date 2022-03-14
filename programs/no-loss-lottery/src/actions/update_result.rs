@@ -11,7 +11,7 @@ pub struct UpdateResult<'info> {
     /// CHECK: TODO
     pub vrf: AccountInfo<'info>,
     /// CHECK: TODO
-    pub bar: AccountInfo<'info>,
+    pub vault_manager: Account<'info, VaultManager>,
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
