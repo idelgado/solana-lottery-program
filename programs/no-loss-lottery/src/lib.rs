@@ -184,7 +184,6 @@ pub mod no_loss_lottery {
         let ticket_account = &mut ctx.accounts.ticket;
         ticket_account.deposit_mint = ctx.accounts.deposit_mint.key();
         ticket_account.yield_mint = ctx.accounts.yield_mint.key();
-        ticket_account.vault = ctx.accounts.deposit_vault.key();
         ticket_account.ticket_mint = ctx.accounts.ticket_mint.key();
         ticket_account.numbers = numbers;
 
@@ -241,13 +240,13 @@ pub mod no_loss_lottery {
         };
 
         let create_metadata_accounts = [
-            &ctx.accounts.ticket_metadata,
-            &ctx.accounts.ticket_mint.to_account_info(),
-            &ctx.accounts.vault_manager.to_account_info(),
-            &ctx.accounts.user.to_account_info(),
-            &ctx.accounts.vault_manager.to_account_info(),
-            &ctx.accounts.system_program.to_account_info(),
-            &ctx.accounts.rent.to_account_info(),
+            ctx.accounts.ticket_metadata.clone().to_account_info(),
+            ctx.accounts.ticket_mint.clone().to_account_info(),
+            ctx.accounts.vault_manager.clone().to_account_info(),
+            ctx.accounts.user.clone().to_account_info(),
+            ctx.accounts.vault_manager.clone().to_account_info(),
+            ctx.accounts.system_program.clone().to_account_info(),
+            ctx.accounts.rent.clone().to_account_info(),
         ];
 
         // create metadata account
@@ -271,7 +270,7 @@ pub mod no_loss_lottery {
 
         invoke_signed(
             &metadata_ix,
-            create_metadata_accounts,
+            &create_metadata_accounts,
             &[&[
                 ctx.accounts.deposit_mint.clone().key().as_ref(),
                 ctx.accounts.yield_mint.clone().key().as_ref(),
@@ -315,40 +314,41 @@ pub mod no_loss_lottery {
                 &[*ctx.bumps.get("vault_manager").unwrap()],
             ]],
         )?;
+        Ok(())
 
-        // set collection
-        let collection_accounts = [
-            ctx.accounts.ticket_metadata.clone(),
-            ctx.accounts.vault_manager.clone().to_account_info(),
-            ctx.accounts.user.clone().to_account_info(),
-            ctx.accounts.collection_mint.clone().to_account_info(),
-            ctx.accounts.collection_metadata.clone().to_account_info(),
-            ctx.accounts.collection_master_edition.clone(),
-        ];
+        //// set collection
+        //let collection_accounts = [
+        //    ctx.accounts.ticket_metadata.clone(),
+        //    ctx.accounts.vault_manager.clone().to_account_info(),
+        //    ctx.accounts.user.clone().to_account_info(),
+        //    ctx.accounts.collection_mint.clone().to_account_info(),
+        //    ctx.accounts.collection_metadata.clone().to_account_info(),
+        //    ctx.accounts.collection_master_edition.clone(),
+        //];
 
-        let collection_ix = verify_collection(
-            ctx.accounts.metadata_program.clone().key(),
-            ctx.accounts.ticket_metadata.clone().key(),
-            ctx.accounts.vault_manager.clone().key(),
-            ctx.accounts.user.clone().key(),
-            ctx.accounts.collection_mint.clone().key(),
-            ctx.accounts.collection_metadata.clone().key(),
-            ctx.accounts.collection_master_edition.clone().key(),
-            None,
-        );
+        //let collection_ix = verify_collection(
+        //    ctx.accounts.metadata_program.clone().key(),
+        //    ctx.accounts.ticket_metadata.clone().key(),
+        //    ctx.accounts.vault_manager.clone().key(),
+        //    ctx.accounts.user.clone().key(),
+        //    ctx.accounts.collection_mint.clone().key(),
+        //    ctx.accounts.collection_metadata.clone().key(),
+        //    ctx.accounts.collection_master_edition.clone().key(),
+        //    None,
+        //);
 
-        invoke_signed(
-            &collection_ix,
-            &collection_accounts,
-            &[&[
-                ctx.accounts.deposit_mint.clone().key().as_ref(),
-                ctx.accounts.yield_mint.clone().key().as_ref(),
-                ctx.accounts.deposit_vault.clone().key().as_ref(),
-                ctx.accounts.yield_vault.clone().key().as_ref(),
-                &[*ctx.bumps.get("vault_manager").unwrap()],
-            ]],
-        )
-        .map_err(|e| e.into())
+        //invoke_signed(
+        //    &collection_ix,
+        //    &collection_accounts,
+        //    &[&[
+        //        ctx.accounts.deposit_mint.clone().key().as_ref(),
+        //        ctx.accounts.yield_mint.clone().key().as_ref(),
+        //        ctx.accounts.deposit_vault.clone().key().as_ref(),
+        //        ctx.accounts.yield_vault.clone().key().as_ref(),
+        //        &[*ctx.bumps.get("vault_manager").unwrap()],
+        //    ]],
+        //)
+        //.map_err(|e| e.into())
     }
 
     // redeem tickets for deposited tokens
@@ -848,11 +848,7 @@ pub struct Buy<'info> {
     #[account(mut)]
     pub collection_master_edition: AccountInfo<'info>,
 
-    #[account(init,
-        payer = user,
-        mint::decimals = 0,
-        mint::authority = vault_manager,
-        seeds = [ticket.key().as_ref()], bump)]
+    #[account(mut)]
     pub ticket_mint: Box<Account<'info, token::Mint>>,
 
     /// CHECK: todo
@@ -916,7 +912,7 @@ pub struct Redeem<'info> {
     #[account(mut)]
     pub collection_mint: Box<Account<'info, token::Mint>>,
 
-    #[account(mut, seeds = [ticket.key().as_ref()], bump)]
+    #[account(mut)]
     pub ticket_mint: Account<'info, token::Mint>,
 
     #[account(mut)]
@@ -1026,13 +1022,10 @@ pub struct Dispense<'info> {
         seeds = [&numbers, vault_manager.key().as_ref()], bump)]
     pub ticket: Box<Account<'info, Ticket>>,
 
-    // both winner ATAs get initialized with unrelated mints
-    // this is so we do not trigger 'expected account to be initialized'
-    // this case will happen when a winning ticket is not found
-    #[account(init_if_needed, payer = user, associated_token::mint = collection_mint, associated_token::authority = user)]
+    #[account(mut)]
     pub winner_ticket_ata: Box<Account<'info, token::TokenAccount>>,
 
-    #[account(init_if_needed, payer = user, associated_token::mint = deposit_mint, associated_token::authority = user)]
+    #[account(mut)]
     pub winner_deposit_ata: Account<'info, token::TokenAccount>,
 
     // swap program token accounts
@@ -1146,9 +1139,6 @@ pub struct VaultManager {
 pub struct Ticket {
     pub deposit_mint: Pubkey,
     pub yield_mint: Pubkey,
-    pub vault: Pubkey,
-    pub tickets: Pubkey,
-    //pub owner: Pubkey,
     pub ticket_mint: Pubkey,
     pub numbers: [u8; 6],
 }
