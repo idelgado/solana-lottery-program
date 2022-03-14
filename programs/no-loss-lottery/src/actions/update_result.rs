@@ -11,6 +11,7 @@ pub struct UpdateResult<'info> {
     /// CHECK: TODO
     pub vrf: AccountInfo<'info>,
     /// CHECK: TODO
+    #[account(mut)]
     pub vault_manager: Account<'info, VaultManager>,
 }
 

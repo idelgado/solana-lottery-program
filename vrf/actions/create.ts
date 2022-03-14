@@ -71,7 +71,7 @@ export async function createVrfAccount(argv: any): Promise<void> {
       // ensure all accounts in updateResult are populated
       { pubkey: stateAccount.publicKey, isSigner: false, isWritable: true },
       { pubkey: vrfSecret.publicKey, isSigner: false, isWritable: false },
-      { pubkey: vaultManager, isSigner: false, isWritable: false },
+      { pubkey: vaultManager, isSigner: false, isWritable: true },
     ],
     ixData: ixCoder.encode("updateResult", ""), // pass any params for instruction here
   };
@@ -157,7 +157,7 @@ export async function createVrfAccount(argv: any): Promise<void> {
     `${chalk.blue(
       "Run the following command to watch the Switchboard vrf:"
     )}\n\t${chalk.white(
-      "ts-node src watch",
+      "ts-node vrf watch",
       vrfAccount.publicKey.toString(),
       "--rpcUrl",
       rpcUrl,
@@ -169,7 +169,7 @@ export async function createVrfAccount(argv: any): Promise<void> {
     `${chalk.blue(
       "Run the following command to watch the client program:"
     )}\n\t${chalk.white(
-      "ts-node src watch",
+      "ts-node vrf watch",
       stateAccount.publicKey.toString(),
       "--rpcUrl",
       rpcUrl,
@@ -181,7 +181,7 @@ export async function createVrfAccount(argv: any): Promise<void> {
     `${chalk.blue(
       "Run the following command to request a new ranomness value:"
     )}\n\t${chalk.white(
-      "ts-node src request",
+      "ts-node vrf request",
       vrfAccount.publicKey.toString(),
       "--payer",
       payer,
