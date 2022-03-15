@@ -77,6 +77,8 @@ export async function RequestRandomnessCPI(argv: any): Promise<void> {
       payerKeypair.publicKey
     );
 
+  const vaultManager = new PublicKey("EzX6ewwDGqT6PCCzHBK3gp6efiF7vB4tFFb2t1fYBfSD");
+
   const requestTxn = await clientProgram.rpc.requestResult(
     {
       clientStateBump: vrfBump,
@@ -86,6 +88,7 @@ export async function RequestRandomnessCPI(argv: any): Promise<void> {
     {
       accounts: {
         state: vrfClient.publicKey,
+        vaultManager: vaultManager,
         authority: payerKeypair.publicKey,
         switchboardProgram: switchboardProgram.programId,
         vrf: state.vrf,

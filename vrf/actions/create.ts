@@ -36,7 +36,7 @@ export async function createVrfAccount(argv: any): Promise<void> {
     rpcUrl
   );
 
-  const vaultManager = new PublicKey("21f2tvftnRuFV9tRxKxWM6v56ia8GczMt2hAjf8ToYoj"); 
+  const vaultManager = new PublicKey("EzX6ewwDGqT6PCCzHBK3gp6efiF7vB4tFFb2t1fYBfSD"); 
 
   const vrfSecret = keypair
     ? loadKeypair(keypair)
