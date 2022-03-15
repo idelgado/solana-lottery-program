@@ -232,10 +232,10 @@
     typedoc "^0.20.36"
     ws "^7.4.6"
 
-"@switchboard-xyz/switchboard-v2@0.0.62":
-  version "0.0.62"
-  resolved "https://registry.npmjs.org/@switchboard-xyz/switchboard-v2/-/switchboard-v2-0.0.62.tgz"
-  integrity sha512-cgOG2FqGPPXOSyTbWFqGjFDC3gzReHneJ1pfTCi53Bv8a27O3V7jz5l8FIePdyQvO/0up5NayotZdkSfMY1ReA==
+"@switchboard-xyz/switchboard-v2@0.0.67":
+  version "0.0.67"
+  resolved "https://registry.yarnpkg.com/@switchboard-xyz/switchboard-v2/-/switchboard-v2-0.0.67.tgz#2fb1f2f18266f6963cca3ff31da1196dc3172c8d"
+  integrity sha512-6yFFCSrc7MGLEu2bfRt4dzcYfWyBF8JoA2N/hTZUDqAw9xaEgSSR7laTvHAjVy4m4MVwu7DLadpCivLy/QEPLA==
   dependencies:
     "@project-serum/anchor" "^0.22.0"
     "@solana/spl-token" "^0.1.8"

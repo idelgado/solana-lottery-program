@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@project-serum/anchor": "^0.22.0",
-    "@switchboard-xyz/switchboard-v2": "0.0.62",
+    "@switchboard-xyz/switchboard-v2": "0.0.67",
     "@solana/spl-token": "^0.2.0",
     "@solana/spl-token-swap": "^0.1.2",
     "dotenv": "^16.0.0",
