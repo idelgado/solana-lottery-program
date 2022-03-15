@@ -14,7 +14,7 @@ use spl_token_swap::instruction::{swap, Swap};
 const MAX_RESULT: u64 = u64::MAX;
 const STATE_SEED: &[u8] = b"STATE";
 
-declare_id!("6mn7W95E1C3SPn8KHsLXKsi2UhpEkvZhZLZ6QAZd5Dc9");
+declare_id!("6tHwQ13Xqici56XsVCpRt3jdxu9FTSJ1gedgPEeP5uPd");
 
 #[program]
 pub mod no_loss_lottery {

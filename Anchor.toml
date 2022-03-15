@@ -2,7 +2,7 @@
 no_loss_lottery = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
 [programs.devnet]
-no_loss_lottery = "6mn7W95E1C3SPn8KHsLXKsi2UhpEkvZhZLZ6QAZd5Dc9"
+no_loss_lottery = "6tHwQ13Xqici56XsVCpRt3jdxu9FTSJ1gedgPEeP5uPd"
 
 [registry]
 url = "https://anchor.projectserum.com"
@@ -10,7 +10,7 @@ url = "https://anchor.projectserum.com"
 [provider]
 # cluster = "localnet"
 #wallet = "~/.config/solana/id.json"
-cluster = "https://api.google.devnet.solana.com"
+cluster = "https://api.devnet.solana.com"
 wallet = "./wallet.json"
 
 [test.validator]
