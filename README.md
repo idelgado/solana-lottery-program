@@ -25,6 +25,12 @@ export PHANTOM_WALLET="phantom-wallet-pubkey"
 # will read $PHANTOM_WALLET to mint dummy tokens
 ts-node ./sdk/scripts/initialize.ts
 
+# initialize vrf
+solana-keygen new --no-bip39-passphrase --outfile secrets/payer-keypair.json
+solana airdrop 10 secrets/payer-keypair.json
+spl-token wrap 4 secrets/payer-keypair.json
+ts-node vrf create F8ce7MsckeZAbAGmxjJNetxYXQa9mKr9nnrC3qKubyYy --payer secrets/payer-keypair.json
+
 # run app in a new terminal
 cd app/ && yarn run dev
 
@@ -37,7 +43,7 @@ solana airdrop 100 $PHANTOM_WALLET
 ts-node ./sdk/scripts/stake.ts
 
 # draw winning ticket numbers
-ts-node ./sdk/scripts/draw.ts
+ts-node vrf request Hm2PjaHrHBdEMkr4LWcGYX3CstnkVjFXWSLKQJUzKS8r --payer secrets/payer-keypair.json
 
 # dispense prize to winner
 ts-node ./sdk/scripts/dispense.ts
