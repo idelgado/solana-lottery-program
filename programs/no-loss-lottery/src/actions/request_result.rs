@@ -67,6 +67,25 @@ impl RequestResult<'_> {
     }
 
     pub fn actuate(ctx: &Context<Self>, params: &RequestResultParams) -> Result<()> {
+        let cutoff_time = ctx.accounts.vault_manager.cutoff_time;
+
+        // if no tickets have been purchased, do not draw
+        if cutoff_time == 0 {
+            return Err(NLLErrorCode::NoTicketsPurchased.into());
+        }
+
+        // if locked, dont call draw
+        if ctx.accounts.vault_manager.locked {
+            return Err(NLLErrorCode::CallDispense.into());
+        }
+
+        let now = get_current_time();
+
+        // if time remaining then error
+        if now < cutoff_time {
+            return Err(NLLErrorCode::TimeRemaining.into());
+        }
+
         let switchboard_program = ctx.accounts.switchboard_program.to_account_info();
 
         let vrf_request_randomness = VrfRequestRandomness {
