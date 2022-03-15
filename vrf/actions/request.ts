@@ -13,6 +13,8 @@ import {
   loadVrfClientProgram,
 } from "../utils";
 
+import * as dotenv from "dotenv";
+
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export async function RequestRandomnessCPI(argv: any): Promise<void> {
   const { payer, cluster, rpcUrl, vrfKey } = argv;
@@ -77,7 +79,8 @@ export async function RequestRandomnessCPI(argv: any): Promise<void> {
       payerKeypair.publicKey
     );
 
-  const vaultManager = new PublicKey("EzX6ewwDGqT6PCCzHBK3gp6efiF7vB4tFFb2t1fYBfSD");
+  dotenv.config({ path: "clientaccounts.env" });
+  const vaultManager = new PublicKey(process.env.vaultManager);
 
   const requestTxn = await clientProgram.rpc.requestResult(
     {

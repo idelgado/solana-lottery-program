@@ -20,6 +20,8 @@ import {
   toPermissionString,
 } from "../utils";
 
+import * as dotenv from "dotenv";
+
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export async function createVrfAccount(argv: any): Promise<void> {
   const { payer, cluster, rpcUrl, queueKey, keypair, maxResult } = argv;
@@ -36,7 +38,8 @@ export async function createVrfAccount(argv: any): Promise<void> {
     rpcUrl
   );
 
-  const vaultManager = new PublicKey("EzX6ewwDGqT6PCCzHBK3gp6efiF7vB4tFFb2t1fYBfSD"); 
+  dotenv.config({ path: "clientaccounts.env" });
+  const vaultManager = new PublicKey(process.env.vaultManager);
 
   const vrfSecret = keypair
     ? loadKeypair(keypair)
