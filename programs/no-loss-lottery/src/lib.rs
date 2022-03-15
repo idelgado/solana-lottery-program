@@ -14,7 +14,7 @@ use spl_token_swap::instruction::{swap, Swap};
 const MAX_RESULT: u64 = u64::MAX;
 const STATE_SEED: &[u8] = b"STATE";
 
-declare_id!("6mn7W95E1C3SPn8KHsLXKsi2UhpEkvZhZLZ6QAZd5Dc9");
+declare_id!("6tHwQ13Xqici56XsVCpRt3jdxu9FTSJ1gedgPEeP5uPd");
 
 #[program]
 pub mod no_loss_lottery {
@@ -65,8 +65,6 @@ pub mod no_loss_lottery {
         let vault_manager = &mut ctx.accounts.vault_manager.load_mut()?;
         vault_manager.previous_winning_numbers = [d0, d1, d2, d3, d4, d5];
         vault_manager.winning_numbers = [d0, d1, d2, d3, d4, d5];
-
-        vault_manager.randomness = false;
 
         Ok(())
  
@@ -312,11 +310,6 @@ pub mod no_loss_lottery {
             return Err(NLLErrorCode::NoTicketsPurchased.into());
         }
 
-        // if locked, dont call draw
-        if vault_manager.randomness {
-            return Err(NLLErrorCode::AcquiringRandomness.into());
-        }
-
         let now = get_current_time();
 
         // if time remaining then error
@@ -324,8 +317,6 @@ pub mod no_loss_lottery {
             return Err(NLLErrorCode::TimeRemaining.into());
         }
 
-        // locked `buy` function until `find` called
-        vault_manager.randomness = true;
         Ok(())
     }
 
@@ -907,7 +898,6 @@ pub struct VaultManager {
     pub ticket_price: u64,
     pub winning_numbers: [u8; 6],
     pub previous_winning_numbers: [u8; 6],
-    pub randomness: bool, // when a random number is requested set this to true until randomness is returned 
     pub locked: bool, // when draw is called, lock the program until dispense is called
     pub deposit_token_reserve: u64, // amount of tokens to keep in deposit_vault at all times
 }
@@ -933,9 +923,6 @@ pub struct Ticket {
 pub enum NLLErrorCode {
     #[msg("TimeRemaining")]
     TimeRemaining,
-
-    #[msg("Acquiring randomness")]
-    AcquiringRandomness,
 
     #[msg("Must call Dispense")]
     CallDispense,

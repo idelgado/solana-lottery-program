@@ -1,5 +1,6 @@
 import * as anchor from "@project-serum/anchor";
-import * as spl from "@solana/spl-token";
+// Link directly to spl-token due to switchboard dependency conflict
+import * as spl from "../node_modules/@solana/spl-token";
 import * as tokenSwap from "@solana/spl-token-swap";
 import { Program } from "@project-serum/anchor";
 import { NoLossLottery } from "../target/types/no_loss_lottery";

@@ -75,11 +75,6 @@ impl RequestResult<'_> {
             return Err(NLLErrorCode::NoTicketsPurchased.into());
         }
 
-        // if locked, dont call draw
-        if vault_manager.randomness {
-            return Err(NLLErrorCode::AcquiringRandomness.into());
-        }
-
         let now = get_current_time();
 
         // if time remaining then error
