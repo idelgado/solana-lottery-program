@@ -762,6 +762,7 @@ async function initialize(
 
   // init vault
   const initTxSig = await program.rpc.initialize(
+    "test-lottery",
     new anchor.BN(drawDurationSeconds),
     ticketPrice,
     {

@@ -18,6 +18,7 @@ pub mod no_loss_lottery {
     use super::*;
     pub fn initialize(
         ctx: Context<Initialize>,
+        lottery_name: String,
         draw_duration: u64,
         ticket_price: u64,
     ) -> Result<()> {
@@ -55,9 +56,9 @@ pub mod no_loss_lottery {
 
         // metadata params
         let collection_data = DataV2 {
-            name: "collection-nft".to_string(),
-            symbol: "TEST".to_string(),
-            uri: "google.com".to_string(),
+            name: lottery_name.clone(),
+            symbol: "LOTTO".to_string(),
+            uri: "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/240/apple/325/slot-machine_1f3b0.png".to_string(),
             seller_fee_basis_points: 0,
             creators: None,
             collection: None,
@@ -227,9 +228,9 @@ pub mod no_loss_lottery {
 
         // metadata params
         let data = DataV2 {
-            name: "test-nft1".to_string(),
-            symbol: "TEST".to_string(),
-            uri: "google.com".to_string(),
+            name: "Lottery_Ticket".to_string(),
+            symbol: "TICKET".to_string(),
+            uri: "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/320/openmoji/292/admission-tickets_1f39f-fe0f.png".to_string(),
             seller_fee_basis_points: 0,
             creators: None,
             collection: Some(Collection {
@@ -1119,6 +1120,7 @@ pub struct Stake<'info> {
 #[account]
 #[derive(Default)]
 pub struct VaultManager {
+    pub lottery_name: String,
     pub deposit_mint: Pubkey,
     pub deposit_vault: Pubkey,
     pub yield_mint: Pubkey,
