@@ -26,9 +26,15 @@ export PHANTOM_WALLET="phantom-wallet-pubkey"
 ts-node ./sdk/scripts/initialize.ts
 
 # initialize vrf
+mkdir secrets
+# Create and seed payer account
 solana-keygen new --no-bip39-passphrase --outfile secrets/payer-keypair.json
-solana airdrop 10 secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
 spl-token wrap 4 secrets/payer-keypair.json
+# Create vrf account
 ts-node vrf create F8ce7MsckeZAbAGmxjJNetxYXQa9mKr9nnrC3qKubyYy --payer secrets/payer-keypair.json
 
 # run app in a new terminal
