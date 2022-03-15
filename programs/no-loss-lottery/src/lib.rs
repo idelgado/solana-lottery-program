@@ -54,16 +54,20 @@ pub mod no_loss_lottery {
             state.last_timestamp = clock::Clock::get().unwrap().unix_timestamp;
         }
 
-        let formatted_numbers = format!("{:0>6}", result.to_string());
-        let d0: u8 = (&formatted_numbers[0..1]).parse().unwrap();
-        let d1: u8 = (&formatted_numbers[1..2]).parse().unwrap();
-        let d2: u8 = (&formatted_numbers[2..3]).parse().unwrap();
-        let d3: u8 = (&formatted_numbers[3..4]).parse().unwrap();
-        let d4: u8 = (&formatted_numbers[4..5]).parse().unwrap();
-        let d5: u8 = (&formatted_numbers[5..6]).parse().unwrap();
+        if !ctx.accounts.vault_manager.locked {
+            let formatted_numbers = format!("{:0>6}", result.to_string());
+            let d0: u8 = (&formatted_numbers[0..1]).parse().unwrap();
+            let d1: u8 = (&formatted_numbers[1..2]).parse().unwrap();
+            let d2: u8 = (&formatted_numbers[2..3]).parse().unwrap();
+            let d3: u8 = (&formatted_numbers[3..4]).parse().unwrap();
+            let d4: u8 = (&formatted_numbers[4..5]).parse().unwrap();
+            let d5: u8 = (&formatted_numbers[5..6]).parse().unwrap();
 
-        ctx.accounts.vault_manager.previous_winning_numbers = [d0, d1, d2, d3, d4, d5];
-        ctx.accounts.vault_manager.winning_numbers = [d0, d1, d2, d3, d4, d5];
+            ctx.accounts.vault_manager.previous_winning_numbers = [d0, d1, d2, d3, d4, d5];
+            ctx.accounts.vault_manager.winning_numbers = [d0, d1, d2, d3, d4, d5];
+
+            ctx.accounts.vault_manager.locked = true;
+        }
 
         Ok(())
  
@@ -71,6 +75,25 @@ pub mod no_loss_lottery {
 
     #[access_control(ctx.accounts.validate(&ctx, &params))]
     pub fn request_result(ctx: Context<RequestResult>, params: RequestResultParams) -> Result<()> {
+        let cutoff_time = ctx.accounts.vault_manager.cutoff_time;
+
+        // if no tickets have been purchased, do not draw
+        if cutoff_time == 0 {
+            return Err(NLLErrorCode::NoTicketsPurchased.into());
+        }
+
+        // if locked, dont call draw
+        if ctx.accounts.vault_manager.locked {
+            return Err(NLLErrorCode::CallDispense.into());
+        }
+
+        let now = get_current_time();
+
+        // if time remaining then error
+        if now < cutoff_time {
+            return Err(NLLErrorCode::TimeRemaining.into());
+        }
+
         RequestResult::actuate(&ctx, &params)
     }
 
