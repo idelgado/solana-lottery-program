@@ -5,12 +5,11 @@ Solana Riptide Hackathon
 ## Basic App Walkthrough
 
 ```bash
-
-# start validator and load programs
-anchor localnet
-
 # set config to localhost to test against a local validator
-solana config set -u localhost
+solana config set -u devnet
+
+# build and deploy program 
+anchor build; anchor deploy 
 
 # define wallet to use for transactions
 # copy path from 'Keypair Path'
@@ -23,7 +22,6 @@ export PHANTOM_WALLET="phantom-wallet-pubkey"
 # other funcs read from 'clientaccounts.env'
 # required for further commands
 # will read $PHANTOM_WALLET to mint dummy tokens
-ts-node ./sdk/scripts/initialize.ts
 
 # initialize vrf
 mkdir secrets
@@ -35,7 +33,7 @@ solana airdrop 2 secrets/payer-keypair.json
 solana airdrop 2 secrets/payer-keypair.json
 spl-token wrap 4 secrets/payer-keypair.json
 # Create vrf account
-ts-node vrf create F8ce7MsckeZAbAGmxjJNetxYXQa9mKr9nnrC3qKubyYy --payer secrets/payer-keypair.json
+ts-node ./sdk/scripts/initialize.ts create --queueKey F8ce7MsckeZAbAGmxjJNetxYXQa9mKr9nnrC3qKubyYy --userAddress DjrvieNYTxTbFBguZnkqpjkxFdrKuwgLrDeqqWc3Km7x
 
 # run app in a new terminal
 cd app/ && yarn run dev
