@@ -574,7 +574,6 @@ export class Client {
       depositVault: new anchor.web3.PublicKey(process.env.depositVault),
       yieldMint: new anchor.web3.PublicKey(process.env.yieldMint),
       yieldVault: new anchor.web3.PublicKey(process.env.yieldVault),
-      tickets: new anchor.web3.PublicKey(process.env.tickets),
       vaultManager: new anchor.web3.PublicKey(process.env.vaultManager),
       userDepositAta: new anchor.web3.PublicKey(process.env.userDepositAta),
       swapDepositVault: new anchor.web3.PublicKey(process.env.swapDepositVault),
