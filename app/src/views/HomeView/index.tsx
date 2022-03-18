@@ -210,11 +210,7 @@ async function buy(
     program.programId
   );
 
-  const [ticketMint, _ticketMintBump] =
-    await anchor.web3.PublicKey.findProgramAddress(
-      [Uint8Array.from(numbers), ticket.toBuffer()],
-      program.programId
-    );
+  const ticketMint = anchor.web3.Keypair.generate();
 
   const lamports = await spl.getMinimumBalanceForRentExemptMint(
     program.provider.connection
@@ -223,29 +219,30 @@ async function buy(
   const transaction = new anchor.web3.Transaction().add(
     anchor.web3.SystemProgram.createAccount({
       fromPubkey: program.provider.wallet.publicKey,
-      newAccountPubkey: ticketMint,
+      newAccountPubkey: ticketMint.publicKey,
       space: spl.MINT_SIZE,
       lamports,
-      programId: program.programId,
+      programId: spl.TOKEN_PROGRAM_ID,
     }),
     spl.createInitializeMintInstruction(
-      ticketMint,
+      ticketMint.publicKey,
       0,
-      program.programId,
+      config.keys.get(VAULT_MANAGER)!,
       null,
       spl.TOKEN_PROGRAM_ID
     )
   );
 
-  program.provider.send(transaction);
+  const createMintTxSig = await program.provider.send(transaction, [ticketMint]);
+  console.log("createMintTxSig:", createMintTxSig);
 
   const userTicketAta = await spl.getAssociatedTokenAddress(
-    ticketMint,
+    ticketMint.publicKey,
     program.provider.wallet.publicKey
   );
 
-  const ticketMetadata = await Metadata.getPDA(ticketMint);
-  const ticketMasterEdition = await Edition.getPDA(ticketMint);
+  const ticketMetadata = await Metadata.getPDA(ticketMint.publicKey);
+  const ticketMasterEdition = await Edition.getPDA(ticketMint.publicKey);
 
   try {
     // buy a ticket
@@ -260,7 +257,7 @@ async function buy(
         collectionMasterEdition: config.keys.get(COLLECTION_MASTER_EDITION)!,
         collectionMetadata: config.keys.get(COLLECTION_METADATA)!,
         ticket: ticket,
-        ticketMint: ticketMint,
+        ticketMint: ticketMint.publicKey,
         ticketMetadata: ticketMetadata,
         ticketMasterEdition: ticketMasterEdition,
         userTicketAta: userTicketAta,
