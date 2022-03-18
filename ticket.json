@@ -1,0 +1,17 @@
+{
+    "name": "Lottery_Ticket",
+    "symbol": "TICKET",
+    "description": "Lottery Ticket",
+    "seller_fee_basis_points": 0,
+    "image": "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/320/openmoji/292/admission-tickets_1f39f-fe0f.png",
+    "attributes": [],
+    "properties": {
+        "files": [
+            {
+                "uri": "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/320/openmoji/292/admission-tickets_1f39f-fe0f.png",
+                "type": "image/png"
+            }
+        ],
+        "category": "image"
+    }
+}

@@ -230,7 +230,7 @@ pub mod no_loss_lottery {
         let data = DataV2 {
             name: "Lottery_Ticket".to_string(),
             symbol: "TICKET".to_string(),
-            uri: "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/320/openmoji/292/admission-tickets_1f39f-fe0f.png".to_string(),
+            uri: "https://lottery-ticket1.s3.us-west-1.amazonaws.com/ticket.json".to_string(),
             seller_fee_basis_points: 0,
             creators: None,
             collection: Some(Collection {

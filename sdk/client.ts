@@ -197,6 +197,9 @@ export class Client {
   public async dispense() {
     const accounts = await this.readClientAccounts();
 
+    // create payer
+    const payer = await newAccountWithLamports(this.program.provider.connection);
+
     // fetch vault manager data
     const vaultManagerAccount = await this.program.account.vaultManager.fetch(
       accounts.vaultManager
@@ -222,7 +225,7 @@ export class Client {
 
     let ticketMint = await spl.createMint(
       this.program.provider.connection,
-      accounts.mintAuthority,
+      payer,
       accounts.vaultManager,
       accounts.vaultManager,
       0
@@ -230,7 +233,7 @@ export class Client {
 
     let depositMint = await spl.createMint(
       this.program.provider.connection,
-      accounts.mintAuthority,
+      payer,
       accounts.vaultManager,
       accounts.vaultManager,
       0
@@ -262,14 +265,14 @@ export class Client {
 
     const winnerTicketAta = await spl.getOrCreateAssociatedTokenAccount(
       this.program.provider.connection,
-      accounts.mintAuthority,
+      payer,
       ticketMint,
       winningTicketOwner
     );
 
     const winnerDepositAta = await spl.getOrCreateAssociatedTokenAccount(
       this.program.provider.connection,
-      accounts.mintAuthority,
+      payer,
       depositMint,
       winningTicketOwner
     );
