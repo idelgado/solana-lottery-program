@@ -58,7 +58,7 @@ pub mod no_loss_lottery {
         let collection_data = DataV2 {
             name: lottery_name.clone(),
             symbol: "LOTTO".to_string(),
-            uri: "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/240/apple/325/slot-machine_1f3b0.png".to_string(),
+            uri: "https://lottery-ticket1.s3.us-west-1.amazonaws.com/collection.json".to_string(),
             seller_fee_basis_points: 0,
             creators: None,
             collection: None,

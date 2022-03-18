@@ -1,0 +1,17 @@
+{
+    "name": "Test Lottery",
+    "symbol": "LOTTERY",
+    "description": "On Chain Solana Lottery",
+    "seller_fee_basis_points": 0,
+    "image": "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/240/apple/325/money-bag_1f4b0.png",
+    "attributes": [],
+    "properties": {
+        "files": [
+            {
+                "uri": "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/240/apple/325/money-bag_1f4b0.png",
+                "type": "image/png"
+            }
+        ],
+        "category": "image"
+    }
+}
