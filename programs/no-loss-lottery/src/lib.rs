@@ -22,7 +22,7 @@ pub mod no_loss_lottery {
 
     #[access_control(ctx.accounts.validate(&ctx, &params))]
     pub fn init_state(ctx: Context<InitState>, params: InitStateParams) -> Result<()> {
-        InitState::actuate(&ctx, &params)
+        return InitState::actuate(ctx, &params)
     }
 
     #[access_control(ctx.accounts.validate(&ctx, &params))]

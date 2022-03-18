@@ -2,13 +2,15 @@ import * as anchor from "@project-serum/anchor";
 // Avoid linking to switchboard spl-token dependency
 import * as spl from "../node_modules/@solana/spl-token";
 import * as tokenSwap from "@solana/spl-token-swap";
-import { Program } from "@project-serum/anchor";
+import { Program, Provider } from "@project-serum/anchor";
 import { NoLossLottery } from "../target/types/no_loss_lottery";
 import * as dotenv from "dotenv";
 import * as envfile from "envfile";
 import * as fs from "fs";
+import { createVrfAccount } from "./scripts/initialize";
+import { ConfirmOptions } from "@solana/web3.js";
 
-interface ClientAccounts {
+export interface ClientAccounts {
   depositMint: anchor.web3.PublicKey;
   depositVault: anchor.web3.PublicKey;
   yieldMint: anchor.web3.PublicKey;
@@ -32,42 +34,36 @@ export class Client {
   private program: Program<NoLossLottery>;
 
   constructor() {
-    const providerAnchor = anchor.Provider.env();
+    // Use confirmed to ensure that blockchain state is valid
+    const opts: ConfirmOptions = {
+      preflightCommitment: "confirmed",
+      commitment: "confirmed",
+    };
+    const url = process.env.ANCHOR_PROVIDER_URL;
+    if (url === undefined) {
+      throw new Error("ANCHOR_PROVIDER_URL is not defined");
+    }
+    const providerAnchor = Provider.local(url, opts);
+
+    console.log("provider %s", providerAnchor.connection);
     anchor.setProvider(providerAnchor);
     const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
     this.program = program;
   }
 
   // initialize lottery
-  public async initialize(
-    drawDurationSeconds: number,
-    ticketPrice: number,
-    userDepositAta: string
-  ): Promise<void> {
+  public async initialize(argv: any): Promise<void> {
+    console.log("argv % s", argv);
+    const { userAddress} = argv;
+    console.log("userAddress", userAddress);
     // init accounts
     const accounts = await this.createClientAccounts(
-      new anchor.web3.PublicKey(userDepositAta)
+      new anchor.web3.PublicKey(userAddress)
     );
 
-    // init lottery
-    await this.program.rpc.initialize(
-      new anchor.BN(drawDurationSeconds),
-      new anchor.BN(ticketPrice),
-      {
-        accounts: {
-          depositMint: accounts.depositMint,
-          depositVault: accounts.depositVault,
-          yieldMint: accounts.yieldMint,
-          yieldVault: accounts.yieldVault,
-          vaultManager: accounts.vaultManager,
-          tickets: accounts.tickets,
-          user: this.program.provider.wallet.publicKey,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      }
-    );
+    console.log("accounts", accounts);
+
+    await createVrfAccount(this.program, accounts, argv);
 
     await spl.mintTo(
       this.program.provider.connection,
@@ -217,6 +213,7 @@ export class Client {
     const mintAuthority = await newAccountWithLamports(
       this.program.provider.connection
     );
+    console.log("mintAuthority", mintAuthority);
 
     // create deposit mint for testing
     const depositMint = await spl.createMint(
@@ -226,6 +223,7 @@ export class Client {
       null,
       9
     );
+    console.log("depositMint", depositMint);
 
     // create yield mint for testing
     const yieldMint = await spl.createMint(
@@ -235,6 +233,7 @@ export class Client {
       null,
       9
     );
+    console.log("yieldMint", yieldMint);
 
     // get PDAs
 
@@ -243,12 +242,14 @@ export class Client {
         [depositMint.toBuffer()],
         this.program.programId
       );
+    console.log("depositVault", depositVault);
 
     const [yieldVault, _yieldVaultBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [yieldMint.toBuffer()],
         this.program.programId
       );
+    console.log("yieldVault", yieldVault);
 
     const [vaultMgr, _vaultMgrBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -260,6 +261,7 @@ export class Client {
         ],
         this.program.programId
       );
+    console.log("vaultMgr", vaultMgr);
 
     const [tickets, _ticketsBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -272,6 +274,7 @@ export class Client {
         ],
         this.program.programId
       );
+    console.log("tickets", tickets);
 
     // get deployer
     const userDeployerAta = await spl.getOrCreateAssociatedTokenAccount(
@@ -280,6 +283,7 @@ export class Client {
       depositMint,
       userDepositAtaAddress
     );
+    console.log("userDeployerAta", userDeployerAta);
 
     // mint tokens to deployer
     await spl.mintTo(
@@ -290,6 +294,7 @@ export class Client {
       mintAuthority.publicKey,
       1000
     );
+    console.log("minted tokens to deployer");
 
     // get user ata
     const userDepositAta = await spl.getOrCreateAssociatedTokenAccount(
@@ -308,6 +313,7 @@ export class Client {
       mintAuthority.publicKey,
       1000
     );
+    console.log("minted tokens to user ata");
 
     // init swap pool
     const TRADING_FEE_NUMERATOR = 25;
@@ -326,9 +332,9 @@ export class Client {
         [tokenSwapAccount.publicKey.toBuffer()],
         tokenSwap.TOKEN_SWAP_PROGRAM_ID
       );
+    console.log("tokenSwapAccountAuthority %s", tokenSwapAccountAuthority);
 
     // create pool mint
-
     const tokenPoolMint = await spl.createMint(
       this.program.provider.connection,
       mintAuthority,
@@ -386,6 +392,7 @@ export class Client {
       mintAuthority,
       100000
     );
+    console.log("swapYield minting");
 
     await tokenSwap.TokenSwap.createTokenSwap(
       this.program.provider.connection,
@@ -412,6 +419,7 @@ export class Client {
       HOST_FEE_DENOMINATOR,
       tokenSwap.CurveType.ConstantProduct
     );
+    console.log("token swap created");
 
     const accounts = {
       depositMint: depositMint,

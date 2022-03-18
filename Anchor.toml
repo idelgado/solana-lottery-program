@@ -10,7 +10,7 @@ url = "https://anchor.projectserum.com"
 [provider]
 # cluster = "localnet"
 #wallet = "~/.config/solana/id.json"
-cluster = "https://api.devnet.solana.com"
+cluster = "https://api.google.devnet.solana.com"
 wallet = "./wallet.json"
 
 [test.validator]
