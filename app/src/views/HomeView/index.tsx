@@ -3,9 +3,9 @@ import * as spl from "@solana/spl-token";
 import * as tokenSwap from "@solana/spl-token-swap";
 import { Program } from "@project-serum/anchor";
 import { AnchorWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from '@solana/wallet-adapter-react';
+import { useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import * as anchor from '@project-serum/anchor';
+import * as anchor from "@project-serum/anchor";
 import { NoLossLottery } from "../../../../target/types/no_loss_lottery";
 import { TicketCard } from "./ticketcard";
 import styles from "./index.module.css";
@@ -16,22 +16,26 @@ import {
   GetProgramAccountsConfig,
   DataSizeFilter,
 } from "@solana/web3.js";
+import {
+  MetadataProgram,
+  Metadata,
+  Edition,
+} from "@metaplex-foundation/mpl-token-metadata";
 
 export type Maybe<T> = T | null;
 
 const IDL = require("../../../../target/idl/no_loss_lottery.json");
 
-export default function useProgram(connection: anchor.web3.Connection, wallet: AnchorWallet): Program<NoLossLottery> {
+export default function useProgram(
+  connection: anchor.web3.Connection,
+  wallet: AnchorWallet
+): Program<NoLossLottery> {
   // Use confirmed to ensure that blockchain state is valid
   const opts: ConfirmOptions = {
     preflightCommitment: "confirmed",
     commitment: "confirmed",
   };
-  const provider = new anchor.Provider(
-    connection,
-    wallet,
-    opts
-  );
+  const provider = new anchor.Provider(connection, wallet, opts);
   const programId = new anchor.web3.PublicKey(IDL.metadata.address);
   return new anchor.Program(IDL, programId, provider);
 }
@@ -51,24 +55,51 @@ const TOKEN_SWAP_ACCOUNT = "TOKEN_SWAP_ACCOUNT";
 const TOKEN_SWAP_ACCOUNT_AUTHORITY = "TOKEN_SWAP_ACCOUNT_AUTHORITY";
 const POOL_FEE = "POOL_FEE";
 
+// collection
+const COLLECTION_MINT = "COLLECTION_MINT";
+const COLLECTION_METADATA = "COLLECTION_METADATA";
+const COLLECTION_MASTER_EDITION = "COLLECTION_MASTER_EDITION";
+const COLLECTION_ATA = "COLLECTION_ATA";
+
+const collectionMint = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_collectionMint!
+);
+const collectionMetadata = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_collectionMetadata!
+);
+const collectionMasterEdition = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_collectionMasterEdition!
+);
+const collectionAta = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_collectionAta!
+);
+
 const depositMint = process.env.NEXT_PUBLIC_depositMint!;
 const yieldMint = process.env.NEXT_PUBLIC_yieldMint!;
-const swapDepositVault = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_swapDepositVault!);
-const swapYieldVault = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_swapYieldVault!);
+const swapDepositVault = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_swapDepositVault!
+);
+const swapYieldVault = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_swapYieldVault!
+);
 const poolMint = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_poolMint!);
-const tokenSwapAccount = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_amm!);
-const tokenSwapAuthority = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_ammAuthority!);
+const tokenSwapAccount = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_amm!
+);
+const tokenSwapAuthority = new anchor.web3.PublicKey(
+  process.env.NEXT_PUBLIC_ammAuthority!
+);
 const poolFee = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_poolFee!);
 
-let hoursMinSecs = {hours:0, minutes: 0, seconds: 0}
+let hoursMinSecs = { hours: 0, minutes: 0, seconds: 0 };
 
 function getTimeRemaining(endtime: number) {
   const now = Date.parse(new Date().toUTCString()) / 1000;
   const total = endtime - now;
-  const seconds = total > 0 ? Math.floor( (total) % 60 ): 0;
-  const minutes = total > 0 ? Math.floor( (total/60) % 60 ): 0;
-  const hours = total > 0 ? Math.floor( (total/(60*60)) % 24 ): 0;
-  const days = total > 0 ? Math.floor( total/(60*60*24)): 0;
+  const seconds = total > 0 ? Math.floor(total % 60) : 0;
+  const minutes = total > 0 ? Math.floor((total / 60) % 60) : 0;
+  const hours = total > 0 ? Math.floor((total / (60 * 60)) % 24) : 0;
+  const days = total > 0 ? Math.floor(total / (60 * 60 * 24)) : 0;
 
   return { total, days, hours, minutes, seconds };
 }
@@ -76,27 +107,42 @@ function getTimeRemaining(endtime: number) {
 async function deriveConfig(
   program: anchor.Program<NoLossLottery>,
   depositMint: anchor.web3.PublicKey,
-  yieldMint: anchor.web3.PublicKey): Promise<Config> {
-
-  const [depositVault, _depositVaultBump] = await anchor.web3.PublicKey.findProgramAddress(
-    [depositMint.toBuffer()],
-    program.programId
-  );
-  
-  const [yieldVault, _yieldVaultBump] = await anchor.web3.PublicKey.findProgramAddress(
-    [yieldMint.toBuffer()],
-    program.programId
-  );
-  
-  const [vaultMgr, _vaultMgrBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [depositMint.toBuffer(), yieldMint.toBuffer(), depositVault.toBuffer(), yieldVault.toBuffer()],
+  yieldMint: anchor.web3.PublicKey
+): Promise<Config> {
+  const [depositVault, _depositVaultBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [depositMint.toBuffer()],
       program.programId
     );
 
-  const [tickets, _ticketsBump] = await anchor.web3.PublicKey.findProgramAddress(
-    [depositMint.toBuffer(), yieldMint.toBuffer(), depositVault.toBuffer(), yieldVault.toBuffer(), vaultMgr.toBuffer()],
-    program.programId
-  );
+  const [yieldVault, _yieldVaultBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [yieldMint.toBuffer()],
+      program.programId
+    );
+
+  const [vaultMgr, _vaultMgrBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [
+        depositMint.toBuffer(),
+        yieldMint.toBuffer(),
+        depositVault.toBuffer(),
+        yieldVault.toBuffer(),
+      ],
+      program.programId
+    );
+
+  const [tickets, _ticketsBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [
+        depositMint.toBuffer(),
+        yieldMint.toBuffer(),
+        depositVault.toBuffer(),
+        yieldVault.toBuffer(),
+        vaultMgr.toBuffer(),
+      ],
+      program.programId
+    );
 
   const userDepositAta = await spl.getAssociatedTokenAddress(
     depositMint,
@@ -105,7 +151,7 @@ async function deriveConfig(
 
   const userTicketsAta = await spl.getAssociatedTokenAddress(
     tickets,
-    program.provider.wallet.publicKey,
+    program.provider.wallet.publicKey
   );
 
   let keys = new Map<String, anchor.web3.PublicKey>();
@@ -118,8 +164,14 @@ async function deriveConfig(
   keys.set(USER_TICKET_ATA, userTicketsAta);
   keys.set(USER_DEPOSIT_ATA, userDepositAta);
 
+  // collection info
+  keys.set(COLLECTION_MINT, collectionMint);
+  keys.set(COLLECTION_METADATA, collectionMetadata);
+  keys.set(COLLECTION_MASTER_EDITION, collectionMasterEdition);
+  keys.set(COLLECTION_ATA, collectionAta);
+
   // token swap keys
-  keys.set(SWAP_YIELD_VAULT, swapYieldVault)
+  keys.set(SWAP_YIELD_VAULT, swapYieldVault);
   keys.set(SWAP_DEPOSIT_VAULT, swapDepositVault);
   keys.set(POOL_MINT, poolMint);
   keys.set(TOKEN_SWAP_ACCOUNT, tokenSwapAccount);
@@ -150,7 +202,7 @@ interface Config {
 async function buy(
   program: Program<NoLossLottery>,
   numbers: Array<number>,
-  config: Config,
+  config: Config
 ): Promise<[anchor.web3.PublicKey, number]> {
   // create ticket PDA
   const [ticket, ticketBump] = await anchor.web3.PublicKey.findProgramAddress(
@@ -158,7 +210,42 @@ async function buy(
     program.programId
   );
 
-  console.log("ticket: %s", ticket.toString());
+  const [ticketMint, _ticketMintBump] =
+    await anchor.web3.PublicKey.findProgramAddress(
+      [Uint8Array.from(numbers), ticket.toBuffer()],
+      program.programId
+    );
+
+  const lamports = await spl.getMinimumBalanceForRentExemptMint(
+    program.provider.connection
+  );
+
+  const transaction = new anchor.web3.Transaction().add(
+    anchor.web3.SystemProgram.createAccount({
+      fromPubkey: program.provider.wallet.publicKey,
+      newAccountPubkey: ticketMint,
+      space: spl.MINT_SIZE,
+      lamports,
+      programId: program.programId,
+    }),
+    spl.createInitializeMintInstruction(
+      ticketMint,
+      0,
+      program.programId,
+      null,
+      spl.TOKEN_PROGRAM_ID
+    )
+  );
+
+  program.provider.send(transaction);
+
+  const userTicketAta = await spl.getAssociatedTokenAddress(
+    ticketMint,
+    program.provider.wallet.publicKey
+  );
+
+  const ticketMetadata = await Metadata.getPDA(ticketMint);
+  const ticketMasterEdition = await Edition.getPDA(ticketMint);
 
   try {
     // buy a ticket
@@ -169,13 +256,19 @@ async function buy(
         depositVault: config.keys.get(DEPOSIT_VAULT)!,
         yieldVault: config.keys.get(YIELD_VAULT)!,
         vaultManager: config.keys.get(VAULT_MANAGER)!,
-        tickets: config.keys.get(TICKETS)!,
+        collectionMint: config.keys.get(COLLECTION_MINT)!,
+        collectionMasterEdition: config.keys.get(COLLECTION_MASTER_EDITION)!,
+        collectionMetadata: config.keys.get(COLLECTION_METADATA)!,
         ticket: ticket,
-        userTicketsAta: config.keys.get(USER_TICKET_ATA)!,
+        ticketMint: ticketMint,
+        ticketMetadata: ticketMetadata,
+        ticketMasterEdition: ticketMasterEdition,
+        userTicketAta: userTicketAta,
         user: program.provider.wallet.publicKey,
         userDepositAta: config.keys.get(USER_DEPOSIT_ATA)!,
         systemProgram: anchor.web3.SystemProgram.programId,
         associatedTokenProgram: spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+        metadataProgram: MetadataProgram.PUBKEY,
         tokenProgram: spl.TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       },
@@ -190,8 +283,15 @@ async function buy(
 async function redeem(
   program: Program<NoLossLottery>,
   config: Config,
-  ticket: anchor.web3.PublicKey,
+  ticket: anchor.web3.PublicKey
 ) {
+  const ticketAccount = await program.account.ticket.fetch(ticket);
+
+  const userTicketAta = spl.getAssociatedTokenAddress(
+    ticketAccount.ticketMint,
+    program.provider.wallet.publicKey
+  );
+
   try {
     // user redeem token
     const redeemTxSig = await program.rpc.redeem({
@@ -200,8 +300,9 @@ async function redeem(
         yieldMint: config.keys.get(YIELD_MINT)!,
         depositVault: config.keys.get(DEPOSIT_VAULT)!,
         yieldVault: config.keys.get(YIELD_VAULT)!,
-        tickets: config.keys.get(TICKETS)!,
+        ticketMint: ticketAccount.ticketMint,
         vaultManager: config.keys.get(VAULT_MANAGER)!,
+        collectionMint: config.keys.get(COLLECTION_MINT)!,
         ticket: ticket,
         swapYieldVault: config.keys.get(SWAP_YIELD_VAULT)!,
         swapDepositVault: config.keys.get(SWAP_DEPOSIT_VAULT)!,
@@ -209,7 +310,7 @@ async function redeem(
         amm: config.keys.get(TOKEN_SWAP_ACCOUNT)!,
         ammAuthority: config.keys.get(TOKEN_SWAP_ACCOUNT_AUTHORITY)!,
         poolFee: config.keys.get(POOL_FEE)!,
-        userTicketsAta: config.keys.get(USER_TICKET_ATA)!,
+        userTicketAta: userTicketAta,
         user: program.provider.wallet.publicKey,
         userDepositAta: config.keys.get(USER_DEPOSIT_ATA)!,
         tokenSwapProgram: tokenSwap.TOKEN_SWAP_PROGRAM_ID,
@@ -250,8 +351,8 @@ export const HomeView: FC = ({}) => {
       const program = useProgram(connection, wallet);
       console.log("buy");
 
-      const depositMintPK= new anchor.web3.PublicKey(depositMint); 
-      const yieldMintPK = new anchor.web3.PublicKey(yieldMint); 
+      const depositMintPK = new anchor.web3.PublicKey(depositMint);
+      const yieldMintPK = new anchor.web3.PublicKey(yieldMint);
       const config = await deriveConfig(program, depositMintPK, yieldMintPK);
 
       const numbers = [
@@ -264,12 +365,12 @@ export const HomeView: FC = ({}) => {
       ];
       await buy(program, numbers, config);
 
-      oneRef.current!.value = '';
-      twoRef.current!.value = '';
-      threeRef.current!.value = '';
-      fourRef.current!.value = '';
-      fiveRef.current!.value = '';
-      sixRef.current!.value = '';
+      oneRef.current!.value = "";
+      twoRef.current!.value = "";
+      threeRef.current!.value = "";
+      fourRef.current!.value = "";
+      fiveRef.current!.value = "";
+      sixRef.current!.value = "";
 
       viewDashboard();
       viewTickets();
@@ -285,15 +386,18 @@ export const HomeView: FC = ({}) => {
         memcmp: {
           offset: 136,
           bytes: wallet.publicKey.toBase58(),
-        }
+        },
       };
       // Get ticket PDAs by matching with the account size
       const sizeFilter: DataSizeFilter = {
         dataSize: 174,
-      }
+      };
       const filters = [walletMemcmp, sizeFilter];
       const config: GetProgramAccountsConfig = { filters: filters };
-      const accounts = await connection.getProgramAccounts(program.programId, config);
+      const accounts = await connection.getProgramAccounts(
+        program.programId,
+        config
+      );
       console.log("accounts %d", accounts.length);
 
       let newTks = [];
@@ -316,42 +420,58 @@ export const HomeView: FC = ({}) => {
     if (connection && wallet) {
       const program = useProgram(connection, wallet);
 
-      const deposit = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_depositVault!);
-      const depositTokenBalance = await program.provider.connection.getTokenAccountBalance(deposit);
+      const deposit = new anchor.web3.PublicKey(
+        process.env.NEXT_PUBLIC_depositVault!
+      );
+      const depositTokenBalance =
+        await program.provider.connection.getTokenAccountBalance(deposit);
       console.log("deposit vault: %s", depositTokenBalance.value.amount);
 
-      const yieldVault = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_yieldVault!);
-      const yieldTokenBalance = await program.provider.connection.getTokenAccountBalance(yieldVault);
+      const yieldVault = new anchor.web3.PublicKey(
+        process.env.NEXT_PUBLIC_yieldVault!
+      );
+      const yieldTokenBalance =
+        await program.provider.connection.getTokenAccountBalance(yieldVault);
       console.log("yield vault: %s", yieldTokenBalance.value.amount);
 
-      const vaultManager = new anchor.web3.PublicKey(process.env.NEXT_PUBLIC_vaultManager!);
-      const vaultManagerAccount = await program.account.vaultManager.fetch(vaultManager);
+      const vaultManager = new anchor.web3.PublicKey(
+        process.env.NEXT_PUBLIC_vaultManager!
+      );
+      const vaultManagerAccount = await program.account.vaultManager.fetch(
+        vaultManager
+      );
 
-      const timeValues = getTimeRemaining(vaultManagerAccount.cutoffTime.toNumber());
-      hoursMinSecs = { hours: timeValues.days * 24 + timeValues.hours,
-                       minutes: timeValues.minutes,
-                       seconds: timeValues.seconds };
+      const timeValues = getTimeRemaining(
+        vaultManagerAccount.cutoffTime.toNumber()
+      );
+      hoursMinSecs = {
+        hours: timeValues.days * 24 + timeValues.hours,
+        minutes: timeValues.minutes,
+        seconds: timeValues.seconds,
+      };
 
       let newDashboard = [];
       let drawing = "N/A";
-      if (vaultManagerAccount.previousWinningNumbers.toString() !== "0,0,0,0,0,0") {
-        drawing = vaultManagerAccount.previousWinningNumbers.join(' ');
+      if (
+        vaultManagerAccount.previousWinningNumbers.toString() !== "0,0,0,0,0,0"
+      ) {
+        drawing = vaultManagerAccount.previousWinningNumbers.join(" ");
       }
       newDashboard = [
         depositTokenBalance.value.amount,
         yieldTokenBalance.value.amount,
         drawing,
-        ];
+      ];
 
       if (JSON.stringify(newDashboard) !== JSON.stringify(d)) {
-          setDashboard(newDashboard);
+        setDashboard(newDashboard);
       }
     }
   };
 
   function arraysEqual(a1: Array<TicketData>, a2: Array<TicketData>) {
     /* WARNING: arrays must not contain {objects} or behavior may be undefined */
-    return JSON.stringify(a1)==JSON.stringify(a2);
+    return JSON.stringify(a1) == JSON.stringify(a2);
   }
 
   const redeemTicket = async (addr: string) => {
@@ -359,9 +479,9 @@ export const HomeView: FC = ({}) => {
       const program = useProgram(connection, wallet);
       console.log("redeem %s", addr);
 
-      const depositMintPK = new anchor.web3.PublicKey(depositMint); 
-      const yieldMintPK = new anchor.web3.PublicKey(yieldMint); 
-      const ticketPK = new anchor.web3.PublicKey(addr); 
+      const depositMintPK = new anchor.web3.PublicKey(depositMint);
+      const yieldMintPK = new anchor.web3.PublicKey(yieldMint);
+      const ticketPK = new anchor.web3.PublicKey(addr);
       const config = await deriveConfig(program, depositMintPK, yieldMintPK);
       await redeem(program, config, ticketPK);
 
@@ -373,11 +493,11 @@ export const HomeView: FC = ({}) => {
   const onChange = (e: ChangeEvent) => {
     const target = e.target as HTMLInputElement;
     const is_valid = /^\d{1}$/.test(target.value);
-    console.log('onChange %d', is_valid);
+    console.log("onChange %d", is_valid);
     if (!is_valid) {
       target.value = "";
     }
-  }
+  };
 
   viewDashboard();
   viewTickets();
@@ -399,39 +519,51 @@ export const HomeView: FC = ({}) => {
           </div>
         </div>
 
-        {wallet ?
-        <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
-          <h1 className="py-2 px-4 mb-1">Dashboard</h1>
-          <div className="flex flex-col w-full" >
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 my-3 w-full">
-              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
-                <div className="flex items-center text-white dark:text-black" >Draw Time</div>
-                <div className="mt-2 text-3xl font-bold spacing-sm text-white text-center dark:text-black" >
-                  <CountDownTimer hoursMinSecs={hoursMinSecs}/>
+        {wallet ? (
+          <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
+            <h1 className="py-2 px-4 mb-1">Dashboard</h1>
+            <div className="flex flex-col w-full">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-1 my-3 w-full">
+                <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full">
+                  <div className="flex items-center text-white dark:text-black">
+                    Draw Time
+                  </div>
+                  <div className="mt-2 text-3xl font-bold spacing-sm text-white text-center dark:text-black">
+                    <CountDownTimer hoursMinSecs={hoursMinSecs} />
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 my-3 w-full">
+                <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full">
+                  <div className="flex items-center text-white dark:text-black">
+                    Deposit Vault
+                  </div>
+                  <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black">
+                    {d[0]}
+                  </p>
+                </div>
+                <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full">
+                  <div className="flex items-center text-white dark:text-black">
+                    Yield Vault
+                  </div>
+                  <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black">
+                    {d[1]}
+                  </p>
+                </div>
+                <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full">
+                  <div className="flex items-center text-white dark:text-black">
+                    Winning Numbers
+                  </div>
+                  <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black">
+                    {d[2]}
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 my-3 w-full">
-              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
-                <div className="flex items-center text-white dark:text-black" >Deposit Vault</div>
-                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >{d[0]}</p>
-              </div>
-              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
-                <div className="flex items-center text-white dark:text-black" >Yield Vault</div>
-                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >{d[1]}</p>
-              </div>
-              <div className="metric-card bg-gray-900 bg-opacity-40 rounded-lg p-4 max-w-72 w-full" >
-                <div className="flex items-center text-white dark:text-black" >Winning Numbers</div>
-                <p className="mt-2 text-3xl font-bold spacing-sm text-white dark:text-black" >{d[2]}</p>
-              </div>
-            </div>
           </div>
-        </div>
-          : null}
+        ) : null}
         <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
-          {t.length > 0 ?
-            <h1 className="py-2 px-4 mb-1">Tickets</h1>
-            : null}
+          {t.length > 0 ? <h1 className="py-2 px-4 mb-1">Tickets</h1> : null}
           <div className="tks">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 items-start">
               {t?.map((t) => (
@@ -439,46 +571,99 @@ export const HomeView: FC = ({}) => {
                   key={t.pk.toString()}
                   address={t.pk.toString()}
                   numbers={t.numbers}
-                  onSelect={(address: string) => { redeemTicket(address) }}
+                  onSelect={(address: string) => {
+                    redeemTicket(address);
+                  }}
                 />
               ))}
             </div>
           </div>
         </div>
-        {wallet ?
+        {wallet ? (
           <div className="container mx-auto max-w-6xl p-4 2xl:px-0 divide-y">
             <h1 className="py-2 px-4 mb-1">Buy Ticket</h1>
             <div className="p-4">
               <div className="w-full flex items-center justify-center">
                 <div className="w-3/4 flex flex-wrap items-center justify-center -mx-3">
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-one" type="text" placeholder="0" maxLength={1} ref={oneRef} onChange={e => onChange(e)} />
+                    <input
+                      className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none"
+                      id="grid-one"
+                      type="text"
+                      placeholder="0"
+                      maxLength={1}
+                      ref={oneRef}
+                      onChange={(e) => onChange(e)}
+                    />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-two" type="text" placeholder="0" maxLength={1} ref={twoRef} onChange={e => onChange(e)} />
+                    <input
+                      className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none"
+                      id="grid-two"
+                      type="text"
+                      placeholder="0"
+                      maxLength={1}
+                      ref={twoRef}
+                      onChange={(e) => onChange(e)}
+                    />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-three" type="text" placeholder="0" maxLength={1} ref={threeRef} onChange={e => onChange(e)} />
+                    <input
+                      className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none"
+                      id="grid-three"
+                      type="text"
+                      placeholder="0"
+                      maxLength={1}
+                      ref={threeRef}
+                      onChange={(e) => onChange(e)}
+                    />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-four" type="text" placeholder="0" maxLength={1} ref={fourRef} onChange={e => onChange(e)} />
+                    <input
+                      className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none"
+                      id="grid-four"
+                      type="text"
+                      placeholder="0"
+                      maxLength={1}
+                      ref={fourRef}
+                      onChange={(e) => onChange(e)}
+                    />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-five" type="text" placeholder="0" maxLength={1} ref={fiveRef} onChange={e => onChange(e)} />
+                    <input
+                      className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none"
+                      id="grid-five"
+                      type="text"
+                      placeholder="0"
+                      maxLength={1}
+                      ref={fiveRef}
+                      onChange={(e) => onChange(e)}
+                    />
                   </div>
                   <div className="w-20 px-3">
-                    <input className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none" id="grid-six" type="text" placeholder="0" maxLength={1} ref={sixRef} onChange={e => onChange(e)} />
+                    <input
+                      className="block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white appearance-none"
+                      id="grid-six"
+                      type="text"
+                      placeholder="0"
+                      maxLength={1}
+                      ref={sixRef}
+                      onChange={(e) => onChange(e)}
+                    />
                   </div>
                 </div>
               </div>
               <div className="text-center">
-                <button className="btn btn-primary normal-case btn-sm" onClick={buyTicket}>
+                <button
+                  className="btn btn-primary normal-case btn-sm"
+                  onClick={buyTicket}
+                >
                   Buy
                 </button>
               </div>
             </div>
           </div>
-          : null}
+        ) : null}
       </div>
     </div>
   );
