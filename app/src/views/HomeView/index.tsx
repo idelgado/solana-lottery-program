@@ -233,7 +233,9 @@ async function buy(
     )
   );
 
-  const createMintTxSig = await program.provider.send(transaction, [ticketMint]);
+  const createMintTxSig = await program.provider.send(transaction, [
+    ticketMint,
+  ]);
   console.log("createMintTxSig:", createMintTxSig);
 
   const userTicketAta = await spl.getAssociatedTokenAddress(
@@ -284,7 +286,7 @@ async function redeem(
 ) {
   const ticketAccount = await program.account.ticket.fetch(ticket);
 
-  const userTicketAta = spl.getAssociatedTokenAddress(
+  const userTicketAta = await spl.getAssociatedTokenAddress(
     ticketAccount.ticketMint,
     program.provider.wallet.publicKey
   );
@@ -378,33 +380,46 @@ export const HomeView: FC = ({}) => {
     if (connection && wallet) {
       const program = useProgram(connection, wallet);
 
-      // Get accounts associated with the connected wallet
-      const walletMemcmp: MemcmpFilter = {
-        memcmp: {
-          offset: 136,
-          bytes: wallet.publicKey.toBase58(),
-        },
-      };
-      // Get ticket PDAs by matching with the account size
-      const sizeFilter: DataSizeFilter = {
-        dataSize: 174,
-      };
-      const filters = [walletMemcmp, sizeFilter];
-      const config: GetProgramAccountsConfig = { filters: filters };
-      const accounts = await connection.getProgramAccounts(
-        program.programId,
-        config
-      );
-      console.log("accounts %d", accounts.length);
+      const tokenMints: Array<anchor.web3.PublicKey> = [];
+      const accountsCtx =
+        await program.provider.connection.getParsedTokenAccountsByOwner(
+          program.provider.wallet.publicKey,
+          {
+            programId: spl.TOKEN_PROGRAM_ID,
+          }
+        );
+      accountsCtx.value.map(({ pubkey, account }) => {
+        let parsedData = account.data as anchor.web3.ParsedAccountData;
+        tokenMints.push(parsedData.parsed.info.mint as anchor.web3.PublicKey);
+      });
 
       let newTks = [];
+      for (let mint of tokenMints) {
+        // Get accounts associated with the connected wallet
+        const walletMemcmp: MemcmpFilter = {
+          memcmp: {
+            offset: 72,
+            bytes: mint.toString(),
+          },
+        };
+        // Get ticket PDAs by matching with the account size
+        const sizeFilter: DataSizeFilter = {
+          dataSize: 110,
+        };
+        const filters = [walletMemcmp, sizeFilter];
+        const config: GetProgramAccountsConfig = { filters: filters };
+        const accounts = await connection.getProgramAccounts(
+          program.programId,
+          config
+        );
+        console.log("accounts %d", accounts.length);
 
-      for (let account of accounts) {
-        console.log(account.pubkey.toString());
-        const ticket = await program.account.ticket.fetch(account.pubkey);
-        console.log("ticket: %v", ticket.numbers);
-        const tk = new TicketData(account.pubkey, ticket.numbers);
-        newTks.push(tk);
+        for (let account of accounts) {
+          const ticket = await program.account.ticket.fetch(account.pubkey);
+          console.log("ticket: %v", ticket.numbers);
+          const tk = new TicketData(account.pubkey, ticket.numbers);
+          newTks.push(tk);
+        }
       }
 
       if (!arraysEqual(newTks, t)) {
