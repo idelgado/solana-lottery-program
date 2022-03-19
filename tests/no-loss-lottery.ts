@@ -289,6 +289,56 @@ describe("Redeem", () => {
     );
     await redeem(program, config, ticketSecond, null);
   });
+
+  it.only("Redeem ticket, trade it to userB, userB redeems for the deposit token back", async () => {
+    const drawDurationSeconds = 1;
+    const config = await initialize(program, drawDurationSeconds, 1);
+    await tokenSwapInit(program, config);
+
+    // choose your lucky numbers!
+    const numbers = [1, 2, 3, 4, 5, 6];
+
+    const [ticket, userTicketAta] = await buy(program, numbers, config, null);
+
+    // balance is 0 after buying a ticket
+    await assertBalance(program, config.keys.get(USER_DEPOSIT_ATA), 0);
+
+    // get ticketMint
+    const ticketMint = (await program.account.ticket.fetch(ticket)).ticketMint;
+
+    // create new user and ATA
+    const userB = await newAccountWithLamports(program.provider.connection);
+    const userBATA = await spl.getOrCreateAssociatedTokenAccount(
+      program.provider.connection,
+      userB,
+      ticketMint,
+      userB.publicKey
+    );
+
+    // transfer NFT to UserB
+    const tx = new anchor.web3.Transaction();
+    const transferIx = spl.createTransferInstruction(
+      userTicketAta,
+      userBATA.address,
+      program.provider.wallet.publicKey,
+      1
+    );
+    tx.add(transferIx);
+    await program.provider.send(tx);
+    console.log("NFT transferred");
+
+    // userB redeem ticket
+    const userDepositAta = await redeemAnyUser(
+      program,
+      config,
+      ticket,
+      userB,
+      null
+    );
+
+    // we get our token back
+    await assertBalance(program, userDepositAta, 1);
+  });
 });
 
 describe("Draw", () => {
@@ -958,6 +1008,67 @@ async function redeem(
       throw e;
     }
   }
+}
+
+async function redeemAnyUser(
+  program: Program<NoLossLottery>,
+  config: Config,
+  ticket: anchor.web3.PublicKey,
+  user: anchor.web3.Account,
+  error: number | null
+): Promise<anchor.web3.PublicKey> {
+  const ticketAccount = await program.account.ticket.fetch(ticket);
+
+  const userTicketAta = await spl.getAssociatedTokenAddress(
+    ticketAccount.ticketMint,
+    user.publicKey
+  );
+
+  const userDepositAta = await spl.getOrCreateAssociatedTokenAccount(
+    program.provider.connection,
+    user,
+    config.keys.get(DEPOSIT_MINT),
+    user.publicKey
+  );
+
+  try {
+    // user redeem token
+    const redeemTxSig = await program.rpc.redeem({
+      accounts: {
+        depositMint: config.keys.get(DEPOSIT_MINT),
+        depositVault: config.keys.get(DEPOSIT_VAULT),
+        yieldMint: config.keys.get(YIELD_MINT),
+        yieldVault: config.keys.get(YIELD_VAULT),
+        swapYieldVault: config.keys.get(SWAP_YIELD_VAULT),
+        swapDepositVault: config.keys.get(SWAP_DEPOSIT_VAULT),
+        poolMint: config.keys.get(POOL_MINT),
+        amm: config.keys.get(TOKEN_SWAP_ACCOUNT),
+        ammAuthority: config.keys.get(TOKEN_SWAP_ACCOUNT_AUTHORITY),
+        poolFee: config.keys.get(POOL_FEE),
+        vaultManager: config.keys.get(VAULT_MANAGER),
+        collectionMint: config.keys.get(COLLECTION_MINT),
+        ticketMint: ticketAccount.ticketMint,
+        ticket: ticket,
+        userTicketAta: userTicketAta,
+        user: user.publicKey,
+        userDepositAta: userDepositAta.address,
+        tokenSwapProgram: tokenSwap.TOKEN_SWAP_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: spl.TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+      signers: [user],
+    });
+    console.log("redeemTxSig:", redeemTxSig);
+  } catch (e) {
+    if (error) {
+      assert.equal(e.code, error);
+    } else {
+      throw e;
+    }
+  }
+
+  return userDepositAta.address;
 }
 
 async function draw(
