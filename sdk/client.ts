@@ -9,6 +9,7 @@ import * as envfile from "envfile";
 import * as fs from "fs";
 import { createVrfAccount } from "./scripts/initialize";
 import { ConfirmOptions } from "@solana/web3.js";
+import { requestRandomnessCPI } from "./scripts/draw";
 
 export interface ClientAccounts {
   depositMint: anchor.web3.PublicKey;
@@ -117,24 +118,8 @@ export class Client {
     console.log("%d tickets purchased", count);
   }
 
-  // draw winning numbers
-  public async draw(): Promise<string> {
-    const accounts = await this.readClientAccounts();
-
-    return this.program.rpc.draw({
-      accounts: {
-        depositMint: accounts.depositMint,
-        depositVault: accounts.depositVault,
-        yieldMint: accounts.yieldMint,
-        yieldVault: accounts.yieldVault,
-        tickets: accounts.tickets,
-        vaultManager: accounts.vaultManager,
-        user: this.program.provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: spl.TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      },
-    });
+  public async draw(argv: any): Promise<void> {
+    await requestRandomnessCPI(argv); 
   }
 
   // stake deposit tokens
