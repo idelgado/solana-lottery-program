@@ -290,7 +290,7 @@ describe("Redeem", () => {
     await redeem(program, config, ticketSecond, null);
   });
 
-  it.only("Redeem ticket, trade it to userB, userB redeems for the deposit token back", async () => {
+  it("Redeem ticket, trade it to userB, userB redeems for the deposit token back", async () => {
     const drawDurationSeconds = 1;
     const config = await initialize(program, drawDurationSeconds, 1);
     await tokenSwapInit(program, config);
