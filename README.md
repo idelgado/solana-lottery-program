@@ -6,11 +6,8 @@ Solana Riptide Hackathon
 
 ```bash
 
-# start validator and load programs
-anchor localnet
-
 # set config to localhost to test against a local validator
-solana config set -u localhost
+solana config set -u devnet 
 
 # define wallet to use for transactions
 # copy path from 'Keypair Path'
@@ -19,11 +16,21 @@ export ANCHOR_WALLET=$(solana config get | grep 'Keypair Path' | cut -d ' ' -f3)
 # add phantom wallet pubkey used to connect to dapp through browser
 export PHANTOM_WALLET="phantom-wallet-pubkey"
 
+# initialize vrf
+mkdir secrets
+# Create and seed payer account
+solana-keygen new --no-bip39-passphrase --outfile secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
+solana airdrop 2 secrets/payer-keypair.json
+spl-token wrap 4 secrets/payer-keypair.json
+
 # initialize writes pubkeys to 'clientaccounts.env'
 # other funcs read from 'clientaccounts.env'
 # required for further commands
 # will read $PHANTOM_WALLET to mint dummy tokens
-ts-node ./sdk/scripts/initialize.ts
+ts-node ./sdk/scripts/initialize.ts init --queueKey F8ce7MsckeZAbAGmxjJNetxYXQa9mKr9nnrC3qKubyYy --userAddress $PHANTOM_WALLET
 
 # run app in a new terminal
 cd app/ && yarn run dev
@@ -37,7 +44,7 @@ solana airdrop 100 $PHANTOM_WALLET
 ts-node ./sdk/scripts/stake.ts
 
 # draw winning ticket numbers
-ts-node ./sdk/scripts/draw.ts
+ts-node ./sdk/scripts/request.ts request 8uZLtNzRM5dH3K4VN4wdw4QRs5EEuovGrSkzfmfyGYxZ --payer secrets/payer-keypair.json --rpcUrl https://api.devnet.solana.com --cluster devnet
 
 # dispense prize to winner
 ts-node ./sdk/scripts/dispense.ts

@@ -334,7 +334,7 @@ export const HomeView: FC = ({}) => {
   useEffect(() => {
     const interval = setInterval(() => {
       viewDashboard();
-    }, 2000);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 

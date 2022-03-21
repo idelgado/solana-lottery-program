@@ -1,7 +1,9 @@
 import * as anchor from "@project-serum/anchor";
-import * as spl from "@solana/spl-token";
+// Avoid linking to switchboard spl-token dependency
+import * as spl from "../node_modules/@solana/spl-token";
 import * as tokenSwap from "@solana/spl-token-swap";
-import { Program } from "@project-serum/anchor";
+import { Program, Provider } from "@project-serum/anchor";
+import { ConfirmOptions } from "@solana/web3.js";
 import { NoLossLottery } from "../target/types/no_loss_lottery";
 import * as dotenv from "dotenv";
 import * as envfile from "envfile";
@@ -11,8 +13,9 @@ import {
   Metadata,
   Edition,
 } from "@metaplex-foundation/mpl-token-metadata";
+import { create } from "./scripts/initialize";
 
-interface ClientAccounts {
+export interface ClientAccounts {
   depositMint: anchor.web3.PublicKey;
   depositVault: anchor.web3.PublicKey;
   yieldMint: anchor.web3.PublicKey;
@@ -39,46 +42,35 @@ export class Client {
   private program: Program<NoLossLottery>;
 
   constructor() {
+    // Use confirmed to ensure that blockchain state is valid
+    const opts: ConfirmOptions = {
+      preflightCommitment: "confirmed",
+      commitment: "confirmed",
+    };
+    const url = process.env.ANCHOR_PROVIDER_URL;
+    if (url === undefined) {
+      throw new Error("ANCHOR_PROVIDER_URL is not defined");
+    }
+    const providerAnchor = Provider.local(url, opts);
+
+    anchor.setProvider(providerAnchor);
     const program = anchor.workspace.NoLossLottery as Program<NoLossLottery>;
     this.program = program;
   }
 
   // initialize lottery
-  public async initialize(
-    lotteryName: string,
-    drawDurationSeconds: number,
-    ticketPrice: number,
-    userDepositAta: string
-  ): Promise<void> {
+  public async initialize(argv: any): Promise<void> {
+    console.log("argv % s", argv);
+    const { userAddress } = argv;
+    console.log("userAddress", userAddress);
     // init accounts
     const accounts = await this.createClientAccounts(
-      new anchor.web3.PublicKey(userDepositAta)
+      new anchor.web3.PublicKey(userAddress)
     );
 
-    // init lottery
-    await this.program.rpc.initialize(
-      lotteryName,
-      new anchor.BN(drawDurationSeconds),
-      new anchor.BN(ticketPrice),
-      {
-        accounts: {
-          depositMint: accounts.depositMint,
-          depositVault: accounts.depositVault,
-          yieldMint: accounts.yieldMint,
-          yieldVault: accounts.yieldVault,
-          vaultManager: accounts.vaultManager,
-          collectionMint: accounts.collectionMint,
-          collectionMetadata: accounts.collectionMetadata,
-          collectionMasterEdition: accounts.collectionMasterEdition,
-          collectionAta: accounts.collectionAta,
-          user: this.program.provider.wallet.publicKey,
-          metadataProgram: MetadataProgram.PUBKEY,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      }
-    );
+    console.log("accounts", accounts);
+
+    await create(this.program, accounts, argv);
 
     await spl.mintTo(
       this.program.provider.connection,
@@ -87,7 +79,7 @@ export class Client {
       accounts.depositVault,
       accounts.mintAuthority.publicKey,
       1000
-    );
+    )
   }
 
   // buy lottery ticket
@@ -491,6 +483,8 @@ export class Client {
       mintAuthority,
       100000
     );
+    
+    console.log("minting completed");
 
     await tokenSwap.TokenSwap.createTokenSwap(
       this.program.provider.connection,
@@ -517,6 +511,7 @@ export class Client {
       HOST_FEE_DENOMINATOR,
       tokenSwap.CurveType.ConstantProduct
     );
+    console.log("swap completed");
 
     const accounts = {
       depositMint: depositMint,

@@ -1,15 +1,18 @@
 [programs.localnet]
 no_loss_lottery = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
+[programs.devnet]
+no_loss_lottery = "6aokcsMZ38t6FHLaiyFGdJPceVeqh6FE7Dkc8UWFDQam"
+
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+cluster = "devnet"
+wallet = "wallet.json"
 
 [test.validator]
-url = "https://api.devnet.solana.com"
+url = "https://api.google.devnet.solana.com"
 
 # token-swap
 [[test.validator.clone]]

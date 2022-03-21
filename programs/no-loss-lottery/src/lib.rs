@@ -1,3 +1,6 @@
+pub mod actions;
+pub use actions::*;
+
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::AccountsClose;
@@ -6,16 +9,34 @@ use anchor_spl::{
     token::{self},
 };
 use mpl_token_metadata::instruction::{
-    create_master_edition_v3, create_metadata_accounts_v2, verify_collection,
+    create_master_edition_v3, create_metadata_accounts_v2,
 };
 use mpl_token_metadata::state::{Collection, DataV2};
 use spl_token_swap::instruction::{swap, Swap};
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+const STATE_SEED: &[u8] = b"STATE";
+
+declare_id!("6aokcsMZ38t6FHLaiyFGdJPceVeqh6FE7Dkc8UWFDQam");
 
 #[program]
 pub mod no_loss_lottery {
     use super::*;
+
+    #[access_control(ctx.accounts.validate(&ctx, &params))]
+    pub fn init_state(ctx: Context<InitState>, params: InitStateParams) -> Result<()> {
+        return InitState::actuate(ctx, &params)
+    }
+
+    #[access_control(ctx.accounts.validate(&ctx, &params))]
+    pub fn update_result(ctx: Context<UpdateResult>, params: UpdateResultParams) -> Result<()> {
+        return UpdateResult::actuate(ctx, &params);
+    }
+
+    #[access_control(ctx.accounts.validate(&ctx, &params))]
+    pub fn request_result(ctx: Context<RequestResult>, params: RequestResultParams) -> Result<()> {
+        return RequestResult::actuate(&ctx, &params);
+    }
+
     pub fn initialize(
         ctx: Context<Initialize>,
         lottery_name: String,
@@ -24,12 +45,12 @@ pub mod no_loss_lottery {
     ) -> Result<()> {
         // ticket_price must be > 0
         if ticket_price <= 0 {
-            return Err(error!(ErrorCode::InvalidTicketPrice));
+            return Err(error!(SLPErrorCode::InvalidTicketPrice));
         }
 
         // draw_duration must be > 0
         if draw_duration <= 0 {
-            return Err(error!(ErrorCode::InvalidDrawDuration));
+            return Err(error!(SLPErrorCode::InvalidDrawDuration));
         }
 
         let collection_mint_to_accounts = token::MintTo {
@@ -173,12 +194,12 @@ pub mod no_loss_lottery {
 
         // do not allow user to pass in zeroed array of numbers
         if numbers == [0u8; 6] {
-            return Err(error!(ErrorCode::InvalidNumbers));
+            return Err(error!(SLPErrorCode::InvalidNumbers));
         }
 
         // if buy is locked, call find
         if ctx.accounts.vault_manager.locked {
-            return Err(error!(ErrorCode::CallDispense));
+            return Err(error!(SLPErrorCode::CallDispense));
         }
 
         // create ticket PDA data
@@ -356,7 +377,7 @@ pub mod no_loss_lottery {
     pub fn redeem(ctx: Context<Redeem>) -> Result<()> {
         // check that the ticket data account matches the user ticket ata
         if ctx.accounts.user_ticket_ata.mint != ctx.accounts.ticket.ticket_mint {
-            return Err(ErrorCode::IncorrectTicketMint.into());
+            return Err(SLPErrorCode::IncorrectTicketMint.into());
         }
 
         ctx.accounts.vault_manager.circulating_ticket_supply -= 1;
@@ -487,19 +508,19 @@ pub mod no_loss_lottery {
 
         // if no tickets have been purchased, do not draw
         if cutoff_time == 0 {
-            return Err(ErrorCode::NoTicketsPurchased.into());
+            return Err(SLPErrorCode::NoTicketsPurchased.into());
         }
 
         // if locked, dont call draw
         if ctx.accounts.vault_manager.locked {
-            return Err(ErrorCode::CallDispense.into());
+            return Err(SLPErrorCode::CallDispense.into());
         }
 
         let now = get_current_time();
 
         // if time remaining then error
         if now < cutoff_time {
-            return Err(ErrorCode::TimeRemaining.into());
+            return Err(SLPErrorCode::TimeRemaining.into());
         }
 
         // randomly choose 6 winning numbers
@@ -523,7 +544,7 @@ pub mod no_loss_lottery {
     pub fn dispense(ctx: Context<Dispense>, numbers: [u8; 6]) -> Result<()> {
         // crank must pass in winning PDA
         if numbers != ctx.accounts.vault_manager.winning_numbers {
-            return Err(ErrorCode::PassInWinningPDA.into());
+            return Err(SLPErrorCode::PassInWinningPDA.into());
         }
 
         let now = get_current_time();
@@ -553,13 +574,13 @@ pub mod no_loss_lottery {
         if ctx.accounts.winner_deposit_ata.clone().owner
             != ctx.accounts.winner_ticket_ata.clone().owner
         {
-            return Err(ErrorCode::WinnerTicketAndDepositAtasMismatch.into());
+            return Err(SLPErrorCode::WinnerTicketAndDepositAtasMismatch.into());
         }
 
         // winner ticket ata must match ticket pda mint
         // check after validating that `ticket` was previously initialized
         if ctx.accounts.winner_ticket_ata.mint != ctx.accounts.ticket.ticket_mint {
-            return Err(ErrorCode::IncorrectTicketMint.into());
+            return Err(SLPErrorCode::IncorrectTicketMint.into());
         }
 
         // swap all tokens from yield vault to deposit vault
@@ -680,7 +701,7 @@ pub mod no_loss_lottery {
         // if less than n tokens, do not stake
         // wait for more tickets to be purchased
         if amount_in < ctx.accounts.vault_manager.deposit_token_reserve {
-            return Err(error!(ErrorCode::NotEnoughTokens));
+            return Err(error!(SLPErrorCode::NotEnoughTokens));
         };
 
         // subtract reserve from amount to stake
@@ -750,6 +771,21 @@ pub mod no_loss_lottery {
 
         // swap tokens
         anchor_lang::solana_program::program::invoke(&ix, &accounts).map_err(|e| e.into())
+    }
+}
+
+#[account(zero_copy)]
+pub struct VrfClient {
+    pub authority: Pubkey,
+    pub max_result: u64,
+    pub vrf: Pubkey,
+    pub result_buffer: [u8; 32],
+    pub result: u128,
+    pub last_timestamp: i64,
+}
+impl Default for VrfClient {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
     }
 }
 
@@ -1146,7 +1182,7 @@ pub struct Ticket {
 }
 
 #[error_code]
-pub enum ErrorCode {
+pub enum SLPErrorCode {
     #[msg("TimeRemaining")]
     TimeRemaining,
 
@@ -1176,6 +1212,18 @@ pub enum ErrorCode {
 
     #[msg("Winning Deposit ATA and Winning Ticket ATA owners do not match")]
     WinnerTicketAndDepositAtasMismatch,
+
+    #[msg("Not a valid Switchboard VRF account")]
+    InvalidSwitchboardVrfAccount,
+
+    #[msg("The max result must not exceed u64")]
+    MaxResultExceedsMaximum,
+
+    #[msg("Current round result is empty")]
+    EmptyCurrentRoundResult,
+
+    #[msg("Invalid authority account provided.")]
+    InvalidAuthorityError,
 }
 
 fn get_current_time() -> u64 {
